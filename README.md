@@ -1,3 +1,4 @@
+
 # IndieGamer Hub
 
 A dedicated indie game discovery engine and social platform. Built with React + Node/Express + MongoDB.
@@ -56,3 +57,7 @@ See `server/.env.example` for all required variables.
 - **External APIs**: Steam Storefront API, RAWG.io
 - **Storage**: Cloudinary (image uploads)
 - **Auth**: JWT (jsonwebtoken + bcryptjs)
+
+# IndieGamerHub
+Search games in Steam
+
