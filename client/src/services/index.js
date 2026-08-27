@@ -1,4 +1,4 @@
-import api from './api';
+import api, { publicApi } from './api';
 
 export const authService = {
   register: (data) => api.post('/auth/register', data),
@@ -58,15 +58,16 @@ export const adminService = {
 };
 
 export const steamService = {
-  getHomepage: () => api.get('/steam/homepage'),
-  getTrending: () => api.get('/steam/trending'),
-  getSales: () => api.get('/steam/sales'),
-  getUpcoming: () => api.get('/steam/upcoming'),
-  getNewReleases: () => api.get('/steam/new'),
-  search: (q) => api.get('/steam/search', { params: { q } }),
-  getByGenre: (tag) => api.get('/steam/genre', { params: { tag } }),
-  getApp: (appId) => api.get(`/steam/app/${appId}`),
-  getAppReviews: (appId, cursor) => api.get(`/steam/app/${appId}/reviews`, { params: cursor ? { cursor } : {} }),
-  getPlayerCount: (appId) => api.get(`/steam/app/${appId}/players`),
-  verifySteamId: (steamId) => api.post('/steam/verify', { steamId }),
+  getHomepage:    () => publicApi.get('/steam/homepage'),
+  getTrending:    () => publicApi.get('/steam/trending'),
+  getSales:       () => publicApi.get('/steam/sales'),
+  getUpcoming:    () => publicApi.get('/steam/upcoming'),
+  getNewReleases: () => publicApi.get('/steam/new'),
+  search:         (q) => publicApi.get('/steam/search', { params: { q } }),
+  getByGenre:     (tag) => publicApi.get('/steam/genre', { params: { tag } }),
+  getApp:         (appId) => publicApi.get(`/steam/app/${appId}`),
+  getAppReviews:  (appId, cursor) => publicApi.get(`/steam/app/${appId}/reviews`, { params: cursor ? { cursor } : {} }),
+  getPlayerCount: (appId) => publicApi.get(`/steam/app/${appId}/players`),
+  verifySteamId:  (steamId) => publicApi.post('/steam/verify', { steamId }),
 };
+

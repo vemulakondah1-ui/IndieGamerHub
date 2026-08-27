@@ -12,24 +12,28 @@ const generateToken = (id) => {
 // @route   POST /api/auth/register
 // @access  Public
 const register = async (req, res) => {
+  console.log('[Register Debug] Incoming registration request body:', req.body);
   const { username, email, password, role } = req.body;
 
-  if (!username || !email || !password) {
-    const error = new Error('Please provide username, email and password');
-    error.statusCode = 400;
-    throw error;
-  }
-
-  // Validate role (can't self-assign admin)
-  const allowedRoles = ['gamer', 'developer'];
-  const userRole = allowedRoles.includes(role) ? role : 'gamer';
-
   try {
+    if (!username || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide username, email and password',
+      });
+    }
+
+    // Validate role (can't self-assign admin)
+    const allowedRoles = ['gamer', 'developer'];
+    const userRole = allowedRoles.includes(role) ? role : 'gamer';
+
     const user = await User.create({ username, email, password, role: userRole });
 
     const token = generateToken(user._id);
 
-    res.status(201).json({
+    console.log('[Register Debug] User successfully registered:', user.email);
+
+    return res.status(201).json({
       success: true,
       token,
       user: {
@@ -41,22 +45,33 @@ const register = async (req, res) => {
       },
     });
   } catch (err) {
+    console.error('[Register Error]', err.message);
+
     // Handle duplicate key errors (email or username already taken)
     if (err.code === 11000) {
       const field = Object.keys(err.keyValue || {})[0];
       const fieldName = field === 'email' ? 'Email' : field === 'username' ? 'Username' : field;
-      const error = new Error(`${fieldName} is already taken. Please use a different one.`);
-      error.statusCode = 409;
-      throw error;
+      return res.status(409).json({
+        success: false,
+        message: `${fieldName} is already taken. Please use a different one.`,
+      });
     }
+
     // Handle Mongoose validation errors
     if (err.name === 'ValidationError') {
       const message = Object.values(err.errors).map((e) => e.message).join('. ');
-      const error = new Error(message);
-      error.statusCode = 400;
-      throw error;
+      return res.status(400).json({
+        success: false,
+        message,
+      });
     }
-    throw err;
+
+    // Catch-all to prevent 502 Bad Gateway proxy crashes
+    const statusCode = err.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: err.message || 'Server Error',
+    });
   }
 };
 
@@ -66,64 +81,93 @@ const register = async (req, res) => {
 const login = async (req, res) => {
   const { email, password } = req.body;
 
-  if (!email || !password) {
-    const error = new Error('Please provide email and password');
-    error.statusCode = 400;
-    throw error;
+  try {
+    if (!email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide email and password',
+      });
+    }
+
+    const user = await User.findOne({ email }).select('+password');
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password',
+      });
+    }
+
+    const isMatch = await user.matchPassword(password);
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: 'Invalid email or password',
+      });
+    }
+
+    if (!user.isActive) {
+      return res.status(401).json({
+        success: false,
+        message: 'Account has been deactivated',
+      });
+    }
+
+    const token = generateToken(user._id);
+
+    return res.json({
+      success: true,
+      token,
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        role: user.role,
+        avatar: user.avatar,
+      },
+    });
+  } catch (err) {
+    console.error('[Login Error]', err.message);
+    const statusCode = err.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: err.message || 'Server Error',
+    });
   }
-
-  const user = await User.findOne({ email }).select('+password');
-  if (!user || !(await user.matchPassword(password))) {
-    const error = new Error('Invalid email or password');
-    error.statusCode = 401;
-    throw error;
-  }
-
-  if (!user.isActive) {
-    const error = new Error('Account has been deactivated');
-    error.statusCode = 401;
-    throw error;
-  }
-
-  const token = generateToken(user._id);
-
-  res.json({
-    success: true,
-    token,
-    user: {
-      _id: user._id,
-      username: user.username,
-      email: user.email,
-      role: user.role,
-      avatar: user.avatar,
-    },
-  });
 };
 
 // @desc    Get current user profile
 // @route   GET /api/auth/me
 // @access  Private
 const getMe = async (req, res) => {
-  res.json({ success: true, user: req.user });
+  return res.json({ success: true, user: req.user });
 };
 
 // @desc    Update profile
 // @route   PUT /api/auth/me
 // @access  Private
 const updateProfile = async (req, res) => {
-  const { username, bio, website } = req.body;
-  const updates = {};
-  if (username) updates.username = username;
-  if (bio !== undefined) updates.bio = bio;
-  if (website !== undefined) updates.website = website;
-  if (req.file) updates.avatar = req.file.path;
+  try {
+    const { username, bio, website } = req.body;
+    const updates = {};
+    if (username) updates.username = username;
+    if (bio !== undefined) updates.bio = bio;
+    if (website !== undefined) updates.website = website;
+    if (req.file) updates.avatar = req.file.path;
 
-  const user = await User.findByIdAndUpdate(req.user._id, updates, {
-    new: true,
-    runValidators: true,
-  });
+    const user = await User.findByIdAndUpdate(req.user._id, updates, {
+      new: true,
+      runValidators: true,
+    });
 
-  res.json({ success: true, user });
+    return res.json({ success: true, user });
+  } catch (err) {
+    console.error('[UpdateProfile Error]', err.message);
+    const statusCode = err.statusCode || 500;
+    return res.status(statusCode).json({
+      success: false,
+      message: err.message || 'Server Error',
+    });
+  }
 };
 
 module.exports = { register, login, getMe, updateProfile };
