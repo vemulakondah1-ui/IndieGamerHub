@@ -249,10 +249,14 @@ export default function GamesPage() {
               const price = game.price_overview?.final_formatted || game.price || '$14.99';
               const platformName = game.platform || 'Steam';
 
+              // Route numeric Steam App IDs to the full SteamGamePage; others go to generic detail
+              const isSteamId = /^\d+$/.test(gameId);
+              const detailPath = isSteamId ? `/steam/${gameId}` : `/games/${gameId}`;
+
               return (
                 <div
                   key={gameId}
-                  onClick={() => navigate(`/games/${gameId}`)}
+                  onClick={() => navigate(detailPath)}
                   style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '16px', overflow: 'hidden', cursor: 'pointer', transition: 'transform 0.2s, border-color 0.2s', display: 'flex', flexDirection: 'column' }}
                 >
                   <div style={{ position: 'relative', height: '160px', background: '#000' }}>

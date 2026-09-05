@@ -106,9 +106,20 @@ export default function SteamGamePage() {
           <nav className="breadcrumb">
             <Link to="/">Home</Link>
             <span>›</span>
+            <Link to="/games">Browse</Link>
+            <span>›</span>
             <span>{game.title}</span>
           </nav>
           <div className="sgp-hero-info">
+            {/* Game Logo / Capsule Art */}
+            {game.logoUrl && (
+              <img
+                src={game.logoUrl}
+                alt={`${game.title} logo`}
+                className="sgp-hero-logo"
+                onError={(e) => { e.currentTarget.style.display = 'none'; }}
+              />
+            )}
             <div className="sgp-hero-badges">
               {game.genre?.slice(0, 3).map((g) => (
                 <span key={g} className="badge badge-primary">{g}</span>
