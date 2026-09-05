@@ -1,6 +1,6 @@
 // src/pages/GameDetailPage.jsx
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
 import './GameDetailPage.css';
 
@@ -144,9 +144,28 @@ export default function GameDetailPage() {
     }
   };
 
+  const getGenericFallback = (gameId) => {
+    const formatted = String(gameId).replace(/-/g, ' ').toUpperCase();
+    return {
+      _id: gameId,
+      title: formatted,
+      platform: 'Steam & Epic Games',
+      developer: 'Independent Studio Partner',
+      rating: '4.8',
+      reviewCount: '15,000+',
+      description: `Experience ${formatted} with stunning graphics, immersive gameplay, and active community features.`,
+      thumbnail: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80',
+      bannerUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1600&q=80',
+      trailerUrl: '',
+      screenshots: ['https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=800&q=80'],
+      prices: { steam: 49.99, epic: 49.99 },
+      storeLinks: { steam: 'https://store.steampowered.com', epic: 'https://store.epicgames.com' },
+      reviews: [{ author: 'GamerPro', rating: 5, comment: 'Fantastic title with great replay value.' }]
+    };
+  };
+
   useEffect(() => {
     const fetchGameDetails = async () => {
-      // Check local database first for instant load
       if (masterGameDatabase[id]) {
         setGame(masterGameDatabase[id]);
         setLoading(false);
@@ -170,26 +189,6 @@ export default function GameDetailPage() {
     fetchGameDetails();
   }, [id]);
 
-  const getGenericFallback = (gameId) => {
-    const formatted = String(gameId).replace(/-/g, ' ').toUpperCase();
-    return {
-      _id: gameId,
-      title: formatted,
-      platform: 'Steam & Epic Games',
-      developer: 'Independent Studio Partner',
-      rating: '4.8',
-      reviewCount: '15,000+',
-      description: `Experience ${formatted} with stunning graphics, immersive gameplay, and active community features.`,
-      thumbnail: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80',
-      bannerUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1600&q=80',
-      trailerUrl: '',
-      screenshots: ['https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=800&q=80'],
-      prices: { steam: 49.99, epic: 49.99 },
-      storeLinks: { steam: 'https://store.steampowered.com', epic: 'https://store.epicgames.com' },
-      reviews: [{ author: 'GamerPro', rating: 5, comment: 'Fantastic title with great replay value.' }]
-    };
-  };
-
   if (loading) {
     return (
       <div style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'var(--bg-main)', color: '#fff' }}>
@@ -205,7 +204,6 @@ export default function GameDetailPage() {
 
   return (
     <div className="page-wrapper game-detail-page" style={{ backgroundColor: 'var(--bg-main)', color: '#fff', minHeight: '100vh', paddingBottom: '80px' }}>
-
       {/* Hero Banner Header */}
       <div style={{ position: 'relative', height: '420px', background: '#000', overflow: 'hidden' }}>
         <img
@@ -236,8 +234,6 @@ export default function GameDetailPage() {
       </div>
 
       <div className="container" style={{ marginTop: '40px' }}>
-
-        {/* Optional Video Trailer */}
         {currentData.trailerUrl && (
           <div style={{ marginBottom: '40px' }}>
             <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '16px' }}>Official Trailer</h3>
@@ -246,8 +242,6 @@ export default function GameDetailPage() {
         )}
 
         <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '40px' }}>
-
-          {/* Left Column: Description & Screenshots */}
           <div>
             <section style={{ marginBottom: '40px' }}>
               <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '16px', borderBottom: '2px solid var(--border-color)', paddingBottom: '8px' }}>About the Game</h3>
@@ -266,7 +260,6 @@ export default function GameDetailPage() {
             )}
           </div>
 
-          {/* Right Column: Quick Stats & Reviews */}
           <div>
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '24px', marginBottom: '24px' }}>
               <h4 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '16px' }}>Game Overview</h4>
@@ -284,7 +277,6 @@ export default function GameDetailPage() {
               </div>
             </div>
 
-            {/* Community Reviews */}
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '24px' }}>
               <h4 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '16px' }}>Community Reviews</h4>
               {currentData.reviews && currentData.reviews.map((rev, idx) => (
@@ -297,12 +289,9 @@ export default function GameDetailPage() {
                 </div>
               ))}
             </div>
-
           </div>
-
         </div>
       </div>
-
     </div>
   );
 }

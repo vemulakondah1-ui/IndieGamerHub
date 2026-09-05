@@ -48,7 +48,7 @@ router.get('/:id', async (req, res) => {
     // Attempt live fetch from Steam Storefront API
     const steamRes = await axios.get(`https://store.steampowered.com/api/appdetails?appids=${gameId}&cc=US&l=english`, {
       headers: { 'User-Agent': 'Mozilla/5.0' },
-      timeout: 5000
+      timeout: 8000
     });
 
     const appData = steamRes.data[gameId];
@@ -69,7 +69,7 @@ router.get('/:id', async (req, res) => {
       description: details.about_the_game || details.short_description || 'No description available.',
       thumbnail: details.header_image || '',
       bannerUrl: details.background || details.header_image || '',
-      trailerUrl: details.movies && details.movies.length > 0 ? details.movies[0].mp4.max : '',
+      trailerUrl: details.movies && details.movies.length > 0 ? (details.movies[0].mp4?.max || details.movies[0].mp4?.['480'] || '') : '',
       screenshots: details.screenshots ? details.screenshots.map(s => s.path_full) : [],
       prices: { steam: basePrice, epic: basePrice },
       storeLinks: { steam: `https://store.steampowered.com/app/${gameId}`, epic: 'https://store.epicgames.com' },
