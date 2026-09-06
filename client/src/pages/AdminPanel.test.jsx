@@ -14,7 +14,6 @@ vi.mock('../services', () => ({
     updateUserRole: vi.fn(),
     toggleUserStatus: vi.fn(),
     featureSteamGame: vi.fn(),
-    getFeaturedGames: vi.fn(),
   },
 }));
 
@@ -40,7 +39,6 @@ describe('AdminPanel', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
     adminService.getStats.mockResolvedValue({ data: { data: { totalGames: 3, totalUsers: 7, totalReviews: 12 } } });
-    adminService.getFeaturedGames.mockResolvedValue({ data: { data: [] } });
     adminService.getGames.mockResolvedValue({ data: { data: sampleGames } });
     adminService.getUsers.mockResolvedValue({ data: { data: sampleUsers } });
   });
@@ -51,10 +49,10 @@ describe('AdminPanel', () => {
 
   it('loads overview stats and shows real totalGames of 0 instead of falling back to featuredGames.length (nullish, not falsy-zero, bug)', async () => {
     adminService.getStats.mockResolvedValue({ data: { data: { totalGames: 0, totalUsers: 5, totalReviews: 0 } } });
-    adminService.getFeaturedGames.mockResolvedValue({
+    adminService.getGames.mockResolvedValue({
       data: { data: [
-        { _id: '1', title: 'Game A', thumbnail: 'a.jpg', price: 9.99 },
-        { _id: '2', title: 'Game B', thumbnail: 'b.jpg', price: 19.99 },
+        { _id: '1', title: 'Game A', thumbnail: 'a.jpg', price: 9.99, isFeatured: true },
+        { _id: '2', title: 'Game B', thumbnail: 'b.jpg', price: 19.99, isFeatured: true },
       ] },
     });
 
@@ -72,7 +70,7 @@ describe('AdminPanel', () => {
 
   it('falls back to featuredGames.length / 1 / 0 when stats fields are genuinely missing (nullish)', async () => {
     adminService.getStats.mockResolvedValue({ data: { data: {} } });
-    adminService.getFeaturedGames.mockResolvedValue({ data: { data: [{ _id: '1', title: 'Only Featured', thumbnail: 'a.jpg' }] } });
+    adminService.getGames.mockResolvedValue({ data: { data: [{ _id: '1', title: 'Only Featured', thumbnail: 'a.jpg', isFeatured: true }] } });
 
     render(<AdminPanel />);
 
@@ -89,8 +87,32 @@ describe('AdminPanel', () => {
     expect(within(totalReviewsCard).getByText('0')).toBeInTheDocument(); // stats.totalReviews ?? 0
   });
 
-  it('handles unfeatured price defaulting to 0.00 and image onError swap, and removes a featured game', async () => {
-    adminService.getFeaturedGames.mockResolvedValue({ data: { data: [{ _id: 'f1', title: 'No Price Game', thumbnail: 'x.jpg' }] } });
+  it('derives the Featured Games count from games.filter(isFeatured), not a separately-fetched list', async () => {
+    adminService.getGames.mockResolvedValue({
+      data: { data: [
+        { _id: '1', title: 'Featured One', thumbnail: 'a.jpg', isFeatured: true },
+        { _id: '2', title: 'Not Featured', thumbnail: 'b.jpg', isFeatured: false },
+      ] },
+    });
+
+    render(<AdminPanel />);
+
+    await waitFor(() => expect(screen.getByText('Featured One')).toBeInTheDocument());
+    expect(screen.queryByText('Not Featured')).not.toBeInTheDocument();
+
+    const featuredCard = screen.getByText('Featured Games').parentElement;
+    expect(within(featuredCard).getByText('1')).toBeInTheDocument();
+  });
+
+  it('handles unfeatured price defaulting to 0.00 and image onError swap, and removes a featured game without refetching or touching other games', async () => {
+    adminService.getGames.mockResolvedValue({
+      data: {
+        data: [
+          { _id: 'f1', title: 'No Price Game', thumbnail: 'x.jpg', isFeatured: true },
+          { _id: 'f2', title: 'Other Featured Game', thumbnail: 'y.jpg', isFeatured: true, price: 19.99 },
+        ],
+      },
+    });
 
     render(<AdminPanel />);
 
@@ -99,18 +121,24 @@ describe('AdminPanel', () => {
 
     const img = screen.getByAltText('No Price Game');
     fireEvent.error(img);
-    expect(img.src).toContain('via.placeholder.com');
+    expect(img.src).toContain('via.placeholder.com/260x130');
 
     const user = userEvent.setup();
-    await user.click(screen.getByRole('button', { name: /unfeature game/i }));
+    const unfeatureButtons = screen.getAllByRole('button', { name: /unfeature game/i });
+    await user.click(unfeatureButtons[0]);
 
     await waitFor(() => expect(adminService.toggleFeatured).toHaveBeenCalledWith('f1'));
-    // loadData() is called again after removal
-    expect(adminService.getStats).toHaveBeenCalledTimes(2);
+    // Overview derives featuredGames from `games`, so removing patches local
+    // state directly instead of re-fetching (no second loadData()) — and only
+    // the removed game's isFeatured flips; the other game is untouched.
+    expect(screen.queryByText('No Price Game')).not.toBeInTheDocument();
+    expect(screen.getByText('Other Featured Game')).toBeInTheDocument();
+    expect(adminService.getStats).toHaveBeenCalledTimes(1);
+    expect(adminService.getGames).toHaveBeenCalledTimes(1);
   });
 
   it('logs an error (but does not crash) when removing a featured game fails', async () => {
-    adminService.getFeaturedGames.mockResolvedValue({ data: { data: [{ _id: 'f1', title: 'Broken Remove', thumbnail: 'x.jpg' }] } });
+    adminService.getGames.mockResolvedValue({ data: { data: [{ _id: 'f1', title: 'Broken Remove', thumbnail: 'x.jpg', isFeatured: true }] } });
     adminService.toggleFeatured.mockRejectedValueOnce(new Error('network down'));
 
     render(<AdminPanel />);
@@ -120,16 +148,19 @@ describe('AdminPanel', () => {
     await user.click(screen.getByRole('button', { name: /unfeature game/i }));
 
     await waitFor(() => expect(console.error).toHaveBeenCalled());
+    // Failed removal leaves the card in place (no optimistic patch happened).
+    expect(screen.getByText('Broken Remove')).toBeInTheDocument();
   });
 
   it('shows an empty state when there are no featured games', async () => {
+    adminService.getGames.mockResolvedValue({ data: { data: [{ _id: 'g2', title: 'Celeste', isFeatured: false, isPublished: false, thumbnail: '' }] } });
     render(<AdminPanel />);
     await waitFor(() => expect(screen.getByText(/no games are currently featured/i)).toBeInTheDocument());
   });
 
-  it('tolerates getStats/getFeaturedGames individually rejecting (their own .catch(() => null))', async () => {
+  it('tolerates getStats/getGames individually rejecting (their own .catch(() => null))', async () => {
     adminService.getStats.mockRejectedValue(new Error('stats down'));
-    adminService.getFeaturedGames.mockRejectedValue(new Error('featured down'));
+    adminService.getGames.mockRejectedValue(new Error('games down'));
 
     render(<AdminPanel />);
 
@@ -153,7 +184,7 @@ describe('AdminPanel', () => {
   describe('feature-steam-game form (handleFeatureSubmit)', () => {
     it('does nothing when the search query is blank', async () => {
       render(<AdminPanel />);
-      await waitFor(() => expect(adminService.getFeaturedGames).toHaveBeenCalled());
+      await waitFor(() => expect(adminService.getGames).toHaveBeenCalled());
 
       const user = userEvent.setup();
       await user.click(screen.getByRole('button', { name: /fetch & feature/i }));
@@ -164,7 +195,7 @@ describe('AdminPanel', () => {
     it('shows the server success message on success', async () => {
       adminService.featureSteamGame.mockResolvedValue({ data: { message: 'Elden Ring added!' } });
       render(<AdminPanel />);
-      await waitFor(() => expect(adminService.getFeaturedGames).toHaveBeenCalled());
+      await waitFor(() => expect(adminService.getGames).toHaveBeenCalled());
 
       const user = userEvent.setup();
       await user.type(screen.getByLabelText(/search by game name or steam app id/i), 'Elden Ring');
@@ -177,7 +208,7 @@ describe('AdminPanel', () => {
     it('falls back to a generic success message when the server sends none', async () => {
       adminService.featureSteamGame.mockResolvedValue({ data: {} });
       render(<AdminPanel />);
-      await waitFor(() => expect(adminService.getFeaturedGames).toHaveBeenCalled());
+      await waitFor(() => expect(adminService.getGames).toHaveBeenCalled());
 
       const user = userEvent.setup();
       await user.type(screen.getByLabelText(/search by game name or steam app id/i), 'Hades');
@@ -189,7 +220,7 @@ describe('AdminPanel', () => {
     it('shows the server error message on failure', async () => {
       adminService.featureSteamGame.mockRejectedValue({ response: { data: { message: 'Steam app not found' } } });
       render(<AdminPanel />);
-      await waitFor(() => expect(adminService.getFeaturedGames).toHaveBeenCalled());
+      await waitFor(() => expect(adminService.getGames).toHaveBeenCalled());
 
       const user = userEvent.setup();
       await user.type(screen.getByLabelText(/search by game name or steam app id/i), 'bogus999');
@@ -201,13 +232,60 @@ describe('AdminPanel', () => {
     it('falls back to a generic error message when the failure has neither a response body nor an Error message', async () => {
       adminService.featureSteamGame.mockRejectedValue('some non-Error rejection');
       render(<AdminPanel />);
-      await waitFor(() => expect(adminService.getFeaturedGames).toHaveBeenCalled());
+      await waitFor(() => expect(adminService.getGames).toHaveBeenCalled());
 
       const user = userEvent.setup();
       await user.type(screen.getByLabelText(/search by game name or steam app id/i), 'bogus999');
       await user.click(screen.getByRole('button', { name: /fetch & feature/i }));
 
       expect(await screen.findByText('Failed to fetch and feature game from Steam')).toBeInTheDocument();
+    });
+  });
+
+  describe('tab-switch fetch caching (A2)', () => {
+    it('does not refetch games when switching away from and back to the Games tab', async () => {
+      render(<AdminPanel />);
+      await waitFor(() => expect(adminService.getGames).toHaveBeenCalledTimes(1)); // loadData() on mount
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('button', { name: /games/i }));
+      await screen.findByText('Hollow Knight');
+
+      await user.click(screen.getByRole('button', { name: /overview/i }));
+      await user.click(screen.getByRole('button', { name: /games/i }));
+      await screen.findByText('Hollow Knight');
+
+      expect(adminService.getGames).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not refetch users when switching away from and back to the Users tab', async () => {
+      render(<AdminPanel />);
+      const user = userEvent.setup();
+
+      await user.click(screen.getByRole('button', { name: /users/i }));
+      await waitFor(() => expect(adminService.getUsers).toHaveBeenCalledTimes(1));
+      await screen.findByText('alice');
+
+      await user.click(screen.getByRole('button', { name: /overview/i }));
+      await user.click(screen.getByRole('button', { name: /users/i }));
+      await screen.findByText('alice');
+
+      expect(adminService.getUsers).toHaveBeenCalledTimes(1);
+    });
+
+    it('still retries a tab whose initial fetch failed (never marked as loaded)', async () => {
+      adminService.getGames.mockRejectedValueOnce(new Error('down'));
+
+      render(<AdminPanel />);
+      await waitFor(() => expect(adminService.getGames).toHaveBeenCalledTimes(1));
+
+      adminService.getGames.mockResolvedValue({ data: { data: sampleGames } });
+
+      const user = userEvent.setup();
+      await user.click(screen.getByRole('button', { name: /games/i }));
+      await screen.findByText('Hollow Knight');
+
+      expect(adminService.getGames).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -264,15 +342,20 @@ describe('AdminPanel', () => {
       expect(await screen.findByText('No games found.')).toBeInTheDocument();
     });
 
-    it('toggles a game to featured, reflects the new state, and re-syncs the Overview tab via loadData', async () => {
+    it('toggles a game to featured, reflects the new state, and does not refetch (Overview derives from games directly)', async () => {
       adminService.toggleFeatured.mockResolvedValue({});
       const user = await openGamesTab();
       await user.click(screen.getByRole('button', { name: '☆ Feature' })); // Celeste, currently not featured
       expect(adminService.toggleFeatured).toHaveBeenCalledWith('g2');
       const celesteRow = screen.getByText('Celeste').closest('tr');
       expect(await within(celesteRow).findByRole('button', { name: '⭐ Featured' })).toBeInTheDocument();
-      // handleToggleFeatured calls loadData() to keep Overview stats in sync
-      await waitFor(() => expect(adminService.getStats).toHaveBeenCalledTimes(2));
+      // No more loadData() re-fetch on toggle now that Overview reads from `games`.
+      expect(adminService.getStats).toHaveBeenCalledTimes(1);
+
+      await user.click(screen.getByRole('button', { name: /overview/i }));
+      // Hollow Knight was already featured in the fixture, so toggling Celeste makes 2.
+      expect(screen.getByText('Active Featured Games (2)')).toBeInTheDocument();
+      expect(screen.getByText('Celeste')).toBeInTheDocument();
     });
 
     it('alerts with the server message when toggling featured fails', async () => {

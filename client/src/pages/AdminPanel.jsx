@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { adminService } from '../services';
 import { getErrorMessage } from '../utils/getErrorMessage';
+import { onImageError } from '../utils/imageFallback';
 import { useAuth } from '../context/AuthContext';
 import './AdminPanel.css';
 
@@ -18,24 +19,34 @@ export default function AdminPanel() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState({ type: '', text: '' });
-  const [featuredGames, setFeaturedGames] = useState([]);
 
   const [games, setGames] = useState([]);
   const [users, setUsers] = useState([]);
   const [gamesSearch, setGamesSearch] = useState('');
+  // Tracks which tabs' data has already been fetched so switching tabs back
+  // and forth doesn't re-hit the API every time (A2).
+  const loadedTabs = useRef(new Set());
+
+  // Overview's featured cards are derived from `games` (single source of truth)
+  // instead of a separately-fetched list, so toggling featured never drifts (A3).
+  const featuredGames = games.filter((g) => g.isFeatured);
 
   const loadData = async () => {
     try {
-      const [statsRes, featuredRes] = await Promise.all([
+      // Games is fetched here (not just in the [activeTab] effect) so the
+      // Overview tab has real featured-game data even if the user never
+      // visits the Games tab.
+      const [statsRes, gamesRes] = await Promise.all([
         adminService.getStats().catch(() => null),
-        adminService.getFeaturedGames().catch(() => null),
+        adminService.getGames({ limit: 50 }).catch(() => null),
       ]);
 
       if (statsRes?.data?.data) {
         setStats(statsRes.data.data);
       }
-      if (featuredRes?.data?.data) {
-        setFeaturedGames(featuredRes.data.data);
+      if (gamesRes?.data?.data) {
+        setGames(gamesRes.data.data);
+        loadedTabs.current.add('games');
       }
     } catch (err) {
       console.error(err);
@@ -47,14 +58,20 @@ export default function AdminPanel() {
   }, []);
 
   useEffect(() => {
-    if (activeTab === 'games') {
+    if (activeTab === 'games' && !loadedTabs.current.has('games')) {
       adminService.getGames({ limit: 50 })
-        .then(({ data }) => setGames(data.data || []))
+        .then(({ data }) => {
+          setGames(data.data || []);
+          loadedTabs.current.add('games');
+        })
         .catch(console.error);
     }
-    if (activeTab === 'users') {
+    if (activeTab === 'users' && !loadedTabs.current.has('users')) {
       adminService.getUsers({ limit: 50 })
-        .then(({ data }) => setUsers(data.data || []))
+        .then(({ data }) => {
+          setUsers(data.data || []);
+          loadedTabs.current.add('users');
+        })
         .catch(console.error);
     }
   }, [activeTab]);
@@ -81,51 +98,52 @@ export default function AdminPanel() {
     }
   };
 
+  // handleRemoveFeatured always un-features (it's only reachable from the
+  // Overview tab's already-featured cards), so it patches isFeatured to
+  // false directly rather than needing the toggled-from value.
   const handleRemoveFeatured = async (id) => {
     try {
       await adminService.toggleFeatured(id);
-      loadData();
+      setGames((prev) => prev.map((g) => g._id === id ? { ...g, isFeatured: false } : g));
     } catch (err) {
       console.error(err);
     }
   };
 
-  const handleToggleFeatured = async (id, current) => {
+  // Shared shape for the 4 toggle/update handlers below: call the API,
+  // then patch the matching item in the list optimistically; alert on failure.
+  const makeToggle = (apiCall, setList, patchFn) => async (id, ...args) => {
     try {
-      await adminService.toggleFeatured(id);
-      setGames((prev) => prev.map((g) => g._id === id ? { ...g, isFeatured: !current } : g));
-      loadData(); // keeps the Overview tab's featuredGames/stats in sync with this toggle
+      await apiCall(id, ...args);
+      setList((prev) => prev.map((item) => item._id === id ? patchFn(item, ...args) : item));
     } catch (err) {
       alert(getErrorMessage(err));
     }
   };
 
-  const handleTogglePublished = async (id, current) => {
-    try {
-      await adminService.togglePublished(id);
-      setGames((prev) => prev.map((g) => g._id === id ? { ...g, isPublished: !current } : g));
-    } catch (err) {
-      alert(getErrorMessage(err));
-    }
-  };
+  const handleToggleFeatured = makeToggle(
+    (id) => adminService.toggleFeatured(id),
+    setGames,
+    (g, current) => ({ ...g, isFeatured: !current })
+  );
 
-  const handleUpdateRole = async (id, role) => {
-    try {
-      await adminService.updateUserRole(id, role);
-      setUsers((prev) => prev.map((u) => u._id === id ? { ...u, role } : u));
-    } catch (err) {
-      alert(getErrorMessage(err));
-    }
-  };
+  const handleTogglePublished = makeToggle(
+    (id) => adminService.togglePublished(id),
+    setGames,
+    (g, current) => ({ ...g, isPublished: !current })
+  );
 
-  const handleToggleUserStatus = async (id, current) => {
-    try {
-      await adminService.toggleUserStatus(id);
-      setUsers((prev) => prev.map((u) => u._id === id ? { ...u, isActive: !current } : u));
-    } catch (err) {
-      alert(getErrorMessage(err));
-    }
-  };
+  const handleUpdateRole = makeToggle(
+    adminService.updateUserRole,
+    setUsers,
+    (u, role) => ({ ...u, role })
+  );
+
+  const handleToggleUserStatus = makeToggle(
+    (id) => adminService.toggleUserStatus(id),
+    setUsers,
+    (u, current) => ({ ...u, isActive: !current })
+  );
 
   const filteredGames = games.filter((g) =>
     !gamesSearch || g.title?.toLowerCase().includes(gamesSearch.toLowerCase())
@@ -270,7 +288,7 @@ export default function AdminPanel() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '20px' }}>
                   {featuredGames.map((g) => (
                     <div key={g._id} style={{ background: 'var(--bg-card)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                      <img src={g.thumbnail} alt={g.title} onError={e => e.target.src = 'https://via.placeholder.com/260x130?text=No+Image'} style={{ width: '100%', height: '130px', objectFit: 'cover' }} />
+                      <img src={g.thumbnail} alt={g.title} onError={onImageError(260, 130)} style={{ width: '100%', height: '130px', objectFit: 'cover' }} />
                       <div style={{ padding: '16px', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                         <div>
                           <h3 style={{ margin: '0 0 6px 0', fontSize: '1.05rem', color: '#fff' }}>{g.title}</h3>

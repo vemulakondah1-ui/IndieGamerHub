@@ -2,6 +2,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import { onImageError } from '../utils/imageFallback';
 
 // Hoisted to module scope so this 140+ item catalog is built once, not on every render/keystroke.
 const COMPREHENSIVE_CATALOG = [
@@ -261,7 +262,7 @@ export default function GamesPage() {
                   style={{ color: 'inherit', display: 'flex', flexDirection: 'column' }}
                 >
                   <div style={{ position: 'relative', height: '160px', background: '#000' }}>
-                    <img src={thumb} alt={title} loading="lazy" onError={e => e.target.src = 'https://via.placeholder.com/280x160?text=No+Image'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={thumb} alt={title} loading="lazy" onError={onImageError(280, 160)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     <span style={{
                       position: 'absolute',
                       top: '10px',

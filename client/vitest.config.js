@@ -19,6 +19,7 @@ export default defineConfig({
         'src/pages/PrivacyPage.jsx',
         'src/pages/AdminPanel.jsx',
         'src/pages/SteamGamePage.jsx',
+        'src/utils/imageFallback.js',
       ],
       thresholds: {
         statements: 100,

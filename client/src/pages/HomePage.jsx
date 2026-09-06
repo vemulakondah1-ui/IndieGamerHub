@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import { onImageError } from '../utils/imageFallback';
 
 const DEFAULT_FEATURED = [
   { _id: '2358720', title: 'Black Myth: Wukong', platform: 'Steam', developer: 'Game Science', price: '$59.99', thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/2358720/header.jpg' },
@@ -73,7 +74,7 @@ export default function HomePage() {
               return (
                 <Link key={game._id} to={path} className="card" style={{ display: 'block', color: 'inherit' }}>
                   <div style={{ height: '140px', background: '#000' }}>
-                    <img src={game.thumbnail || ''} alt={game.title || 'Game'} loading="lazy" onError={e => e.target.src = 'https://via.placeholder.com/260x140?text=No+Image'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={game.thumbnail || ''} alt={game.title || 'Game'} loading="lazy" onError={onImageError(260, 140)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ padding: '16px' }}>
                     <span style={{ fontSize: '0.7rem', color: '#a78bfa', fontWeight: 700, textTransform: 'uppercase' }}>{game.platform || 'Steam'}</span>
