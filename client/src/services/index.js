@@ -14,7 +14,8 @@ export const gameService = {
   getUpcoming: () => api.get('/games/upcoming'),
   getGenres: () => api.get('/games/genres'),
   getBestSelling: (limit = 10) => api.get('/games/best-selling', { params: { limit } }),
-  getGenreStats: (genre) => api.get('/games/genre-stats', { params: { genre } }),
+  // Updated to point directly to the multi-platform Steam/Epic genre market endpoint
+  getGenreStats: (genre) => api.get(`/games/market/genre/${genre}`),
   getGame: (id) => api.get(`/games/${id}`),
   getDeveloperGames: (devId) => api.get(`/games/developer/${devId}`),
   createGame: (data) => api.post('/games', data, {
@@ -55,19 +56,20 @@ export const adminService = {
   getUsers: (params) => api.get('/admin/users', { params }),
   updateUserRole: (id, role) => api.put(`/admin/users/${id}/role`, { role }),
   toggleUserStatus: (id) => api.put(`/admin/users/${id}/status`),
+  featureSteamGame: (query) => api.post('/admin/feature-steam-game', { query }),
+  getFeaturedGames: () => api.get('/admin/featured-games'),
 };
 
 export const steamService = {
-  getHomepage:    () => publicApi.get('/steam/homepage'),
-  getTrending:    () => publicApi.get('/steam/trending'),
-  getSales:       () => publicApi.get('/steam/sales'),
-  getUpcoming:    () => publicApi.get('/steam/upcoming'),
+  getHomepage: () => publicApi.get('/steam/homepage'),
+  getTrending: () => publicApi.get('/steam/trending'),
+  getSales: () => publicApi.get('/steam/sales'),
+  getUpcoming: () => publicApi.get('/steam/upcoming'),
   getNewReleases: () => publicApi.get('/steam/new'),
-  search:         (q) => publicApi.get('/steam/search', { params: { q } }),
-  getByGenre:     (tag) => publicApi.get('/steam/genre', { params: { tag } }),
-  getApp:         (appId) => publicApi.get(`/steam/app/${appId}`),
-  getAppReviews:  (appId, cursor) => publicApi.get(`/steam/app/${appId}/reviews`, { params: cursor ? { cursor } : {} }),
+  search: (q) => publicApi.get('/steam/search', { params: { q } }),
+  getByGenre: (tag) => publicApi.get('/steam/genre', { params: { tag } }),
+  getApp: (appId) => publicApi.get(`/steam/app/${appId}`),
+  getAppReviews: (appId, cursor) => publicApi.get(`/steam/app/${appId}/reviews`, { params: cursor ? { cursor } : {} }),
   getPlayerCount: (appId) => publicApi.get(`/steam/app/${appId}/players`),
-  verifySteamId:  (steamId) => publicApi.post('/steam/verify', { steamId }),
+  verifySteamId: (steamId) => publicApi.post('/steam/verify', { steamId }),
 };
-
