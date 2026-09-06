@@ -23,6 +23,10 @@ jobs:
       - run: npm run lint
       - run: npm run test:coverage
       - run: npm run build
+      # Only critical-severity: server currently carries known moderate/high
+      # transitive vulns (express/body-parser/qs) whose fix is a breaking
+      # Express 5 upgrade, tracked in UNFORGET.md rather than gating CI on it.
+      - run: npm audit --audit-level=critical
 
   server:
     runs-on: ubuntu-latest
@@ -40,6 +44,7 @@ jobs:
       - run: npm ci
       - run: node -c server.js
       - run: npm test
+      - run: npm audit --audit-level=critical
 
   docker:
     runs-on: ubuntu-latest
