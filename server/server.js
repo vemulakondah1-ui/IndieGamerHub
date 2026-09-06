@@ -1,8 +1,5 @@
 require('dotenv').config();
-// Disabling TLS verification process-wide would MITM-expose every outbound HTTPS call (Steam, RAWG, Cloudinary); only allow it outside production.
-if (process.env.NODE_ENV !== 'production') {
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
-}
+require('./utils/tlsGate').applyTlsGate();
 require('express-async-errors');
 const express = require('express');
 const cors = require('cors');
