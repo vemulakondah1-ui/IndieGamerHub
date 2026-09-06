@@ -43,6 +43,8 @@ const reviewSchema = new mongoose.Schema(
 
 // One review per user per game
 reviewSchema.index({ user: 1, game: 1 }, { unique: true });
+// Separate index: getReviews queries by game alone, and the compound index above can't serve that (game isn't its prefix)
+reviewSchema.index({ game: 1 });
 
 // Static method to recalculate avgRating
 reviewSchema.statics.recalcAvgRating = async function (gameId) {

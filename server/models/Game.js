@@ -114,11 +114,11 @@ const gameSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Text index for full-text search
 gameSchema.index({ title: 'text', description: 'text', tags: 'text' });
-// Index for trending query performance
 gameSchema.index({ createdAt: -1 });
 gameSchema.index({ avgRating: -1 });
 gameSchema.index({ releaseDate: 1 });
+// Not unique: steamAppId defaults to '' for non-Steam games, so many docs share it. ponytail: race on concurrent upserts of the same id, fix with a partial unique index if that admin action ever gets concurrent traffic.
+gameSchema.index({ steamAppId: 1 });
 
 module.exports = mongoose.model('Game', gameSchema);

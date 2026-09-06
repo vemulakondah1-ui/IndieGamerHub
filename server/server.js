@@ -4,11 +4,11 @@ require('express-async-errors');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const pinoHttp = require('pino-http');
 const connectDB = require('./config/db');
 const logger = require('./utils/logger');
 
-// Route imports
 const authRoutes = require('./routes/auth');
 const gameRoutes = require('./routes/games');
 const reviewRoutes = require('./routes/reviews');
@@ -18,10 +18,8 @@ const steamRoutes = require('./routes/steam');
 
 const app = express();
 
-// Connect to MongoDB
 connectDB();
 
-// Security & Logging Middleware
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
@@ -37,7 +35,6 @@ app.use(helmet({
 
 app.use(pinoHttp({ logger }));
 
-// CORS & Body Middleware
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:5173',
   credentials: true,
@@ -45,7 +42,21 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Routes
+// Rate limiting: generous default for reads, tight on auth to blunt brute-force login attempts
+app.use('/api', rateLimit({
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
+  max: Number(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+}));
+app.use('/api/auth', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many attempts, please try again later' },
+}));
+
 app.use('/api/auth', authRoutes);
 app.use('/api/games', gameRoutes);
 app.use('/api/games/:gameId/reviews', reviewRoutes);
@@ -54,12 +65,10 @@ app.use('/api', forumRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/steam', steamRoutes);
 
-// Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'IndieGamer Hub API is running' });
 });
 
-// Global error handler
 app.use((err, req, res, next) => {
   const statusCode = err.statusCode || 500;
   const isDuplicateKeyError = err.code === 11000;

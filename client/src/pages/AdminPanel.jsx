@@ -1,4 +1,3 @@
-// client/src/pages/AdminPanel.jsx
 import { useState, useEffect } from 'react';
 import { adminService } from '../services';
 import './AdminPanel.css';
@@ -13,13 +12,11 @@ export default function AdminPanel() {
     developers: 0
   });
 
-  // Steam curation state
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState({ type: '', text: '' });
   const [featuredGames, setFeaturedGames] = useState([]);
 
-  // Games/Users management state
   const [games, setGames] = useState([]);
   const [users, setUsers] = useState([]);
   const [gamesSearch, setGamesSearch] = useState('');
@@ -306,6 +303,7 @@ export default function AdminPanel() {
             <div className="admin-toolbar">
               <input
                 className="form-input"
+                aria-label="Search games"
                 placeholder="Search games..."
                 value={gamesSearch}
                 onChange={(e) => setGamesSearch(e.target.value)}
