@@ -21,6 +21,7 @@ jobs:
           cache-dependency-path: client/package-lock.json
       - run: npm ci
       - run: npm run lint
+      - run: npm run test:coverage
       - run: npm run build
 
   server:
@@ -31,12 +32,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
+        # 22+ (not the Dockerfile's 20) because the test suite needs --experimental-test-module-mocks, which the production image never runs
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: server/package-lock.json
       - run: npm ci
       - run: node -c server.js
+      - run: npm test
 
   docker:
     runs-on: ubuntu-latest
