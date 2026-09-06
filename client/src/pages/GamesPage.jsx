@@ -1,19 +1,10 @@
 // src/pages/GamesPage.jsx
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
-import './GamesPage.css';
 
-export default function GamesPage() {
-  const navigate = useNavigate();
-  const [games, setGames] = useState([]);
-  const [selectedGenre, setSelectedGenre] = useState('All');
-  const [selectedPlatform, setSelectedPlatform] = useState('All');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
-
-  // Curated catalog with 15+ distinct, unique games per theme/genre with real distinct thumbnails and platforms
-  const comprehensiveCatalog = [
+// Hoisted to module scope so this 140+ item catalog is built once, not on every render/keystroke.
+const COMPREHENSIVE_CATALOG = [
     // --- ACTION ---
     { _id: '105600', title: 'Terraria', platform: 'Steam', genres: ['Action', 'Indie'], price: '$9.99', thumbnail: 'https://cdn.cloudflare.steamstatic.com/steam/apps/105600/header.jpg', short_description: 'Dig, fight, explore, build! Nothing is impossible.' },
     { _id: 'epic-hades', title: 'Hades', platform: 'Epic Games', genres: ['Action', 'RPG'], price: '$24.99', thumbnail: 'https://cdn1.epicgames.com/salesEvent/salesEvent/EGS_Hades_SupergiantGames_S1_2560x1440-a1789a192661ab209de0b28414457e4c', short_description: 'Defy the god of the dead as you hack and slash out of the Underworld.' },
@@ -149,17 +140,24 @@ export default function GamesPage() {
     { _id: '1454400', title: 'Iron Lung', platform: 'Steam', genres: ['Horror', 'Indie'], price: '$5.99', thumbnail: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1833640/header.jpg', short_description: 'Navigate a tiny submarine through an ocean of blood on an alien moon.' },
     { _id: '1313140', title: 'Cult of the Lamb', platform: 'Steam', genres: ['Horror', 'Indie'], price: '$24.99', thumbnail: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1313140/header.jpg', short_description: 'Start your own cult in a land of false prophets.' },
     { _id: '1574270', title: 'Crow Country', platform: 'Steam', genres: ['Horror', 'Indie'], price: '$19.99', thumbnail: 'https://cdn.cloudflare.steamstatic.com/steam/apps/1996010/header.jpg', short_description: 'A nostalgic yet chilling return to classic 90s survival horror.' }
-  ];
+];
+
+export default function GamesPage() {
+  const [games, setGames] = useState([]);
+  const [selectedGenre, setSelectedGenre] = useState('All');
+  const [selectedPlatform, setSelectedPlatform] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchCatalog = async () => {
       try {
         const res = await axios.get('http://localhost:5000/api/steam/games');
         const liveData = res.data.data || res.data.games || res.data;
-        const combined = [...(Array.isArray(liveData) ? liveData : []), ...comprehensiveCatalog];
+        const combined = [...(Array.isArray(liveData) ? liveData : []), ...COMPREHENSIVE_CATALOG];
         setGames(combined);
       } catch (err) {
-        setGames(comprehensiveCatalog);
+        setGames(COMPREHENSIVE_CATALOG);
       } finally {
         setLoading(false);
       }
@@ -169,13 +167,13 @@ export default function GamesPage() {
 
   const genres = ['All', 'Action', 'Adventure', 'RPG', 'Strategy', 'Simulation', 'Indie', 'Survival', 'Horror'];
 
-  const filteredGames = games.filter(game => {
+  const filteredGames = useMemo(() => games.filter(game => {
     const gameGenres = game.genres || [game.genre || 'Action'];
     const matchesGenre = selectedGenre === 'All' || gameGenres.some(g => g.toLowerCase() === selectedGenre.toLowerCase());
     const matchesPlatform = selectedPlatform === 'All' || (game.platform || 'Steam') === selectedPlatform;
     const matchesSearch = (game.title || game.name || '').toLowerCase().includes(searchQuery.toLowerCase());
     return matchesGenre && matchesPlatform && matchesSearch;
-  });
+  }), [games, selectedGenre, selectedPlatform, searchQuery]);
 
   return (
     <div className="page-wrapper games-page" style={{ paddingBottom: '80px' }}>
@@ -191,12 +189,14 @@ export default function GamesPage() {
         <div style={{ display: 'flex', gap: '12px', maxWidth: '700px', margin: '0 auto 24px', flexWrap: 'wrap', justifyContent: 'center' }}>
           <input
             type="text"
+            aria-label="Search across Steam & Epic"
             placeholder="Search across Steam & Epic (e.g. Terraria, Hades, Rust)..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{ flex: 1, minWidth: '280px', padding: '14px 20px', borderRadius: '14px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: '#fff', fontSize: '1rem', outline: 'none' }}
           />
           <select
+            aria-label="Filter by platform"
             value={selectedPlatform}
             onChange={(e) => setSelectedPlatform(e.target.value)}
             style={{ padding: '0 20px', borderRadius: '14px', background: 'var(--bg-card)', border: '1px solid var(--border-color)', color: '#fff', fontWeight: 700, cursor: 'pointer', outline: 'none' }}
@@ -254,13 +254,14 @@ export default function GamesPage() {
               const detailPath = isSteamId ? `/steam/${gameId}` : `/games/${gameId}`;
 
               return (
-                <div
+                <Link
                   key={gameId}
-                  onClick={() => navigate(detailPath)}
-                  style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '16px', overflow: 'hidden', cursor: 'pointer', transition: 'transform 0.2s, border-color 0.2s', display: 'flex', flexDirection: 'column' }}
+                  to={detailPath}
+                  className="card"
+                  style={{ color: 'inherit', display: 'flex', flexDirection: 'column' }}
                 >
                   <div style={{ position: 'relative', height: '160px', background: '#000' }}>
-                    <img src={thumb} alt={title} onError={e => e.target.src = 'https://via.placeholder.com/280x160?text=No+Image'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={thumb} alt={title} loading="lazy" onError={e => e.target.src = 'https://via.placeholder.com/280x160?text=No+Image'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     <span style={{
                       position: 'absolute',
                       top: '10px',
@@ -286,7 +287,7 @@ export default function GamesPage() {
                       <span style={{ fontSize: '0.85rem', color: 'var(--accent-primary)', fontWeight: 700 }}>View Details →</span>
                     </div>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>

@@ -86,14 +86,16 @@
 .carousel__dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  padding: 18px;
   background: var(--bg-card-hover);
+  background-clip: content-box;
   border: none;
+  border-radius: 50%;
   transition: all var(--transition-fast);
   cursor: pointer;
 }
 .carousel__dot.active {
-  background: var(--accent-primary);
+  background-color: var(--accent-primary);
   width: 24px;
   border-radius: var(--radius-full);
 }

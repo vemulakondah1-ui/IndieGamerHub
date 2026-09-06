@@ -34,10 +34,7 @@
 
 .logo-text {
   font-size: 0.7rem;
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--text-primary);
   letter-spacing: 0.02em;
 }
 
@@ -185,8 +182,11 @@
 .hamburger {
   display: none;
   flex-direction: column;
+  justify-content: center;
+  align-items: center;
   gap: 5px;
-  padding: 6px;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: var(--radius-sm);
 }
 .hamburger span {

@@ -6,7 +6,7 @@ import './UserProfile.css';
 
 // ─── Avatar gradient helpers ───────────────────────────────────────────────
 const GRADIENTS = [
-  'linear-gradient(135deg,#7c3aed,#06b6d4)',
+  'var(--gradient-primary)',
   'linear-gradient(135deg,#f59e0b,#ef4444)',
   'linear-gradient(135deg,#10b981,#3b82f6)',
   'linear-gradient(135deg,#ec4899,#8b5cf6)',
@@ -241,8 +241,9 @@ export default function UserProfile() {
             <div className="up-card-title">✏️ Edit Profile</div>
             <form onSubmit={handleSave} className="up-edit-form">
               <div className="up-form-group">
-                <label className="up-form-label">Username</label>
+                <label className="up-form-label" htmlFor="up-username">Username</label>
                 <input
+                  id="up-username"
                   className="up-form-input"
                   value={editForm.username}
                   onChange={(e) => setEditForm((f) => ({ ...f, username: e.target.value }))}
@@ -251,8 +252,9 @@ export default function UserProfile() {
                 />
               </div>
               <div className="up-form-group">
-                <label className="up-form-label">Bio</label>
+                <label className="up-form-label" htmlFor="up-bio">Bio</label>
                 <textarea
+                  id="up-bio"
                   className="up-form-textarea"
                   value={editForm.bio}
                   onChange={(e) => setEditForm((f) => ({ ...f, bio: e.target.value }))}
@@ -261,8 +263,9 @@ export default function UserProfile() {
                 />
               </div>
               <div className="up-form-group">
-                <label className="up-form-label">Website</label>
+                <label className="up-form-label" htmlFor="up-website">Website</label>
                 <input
+                  id="up-website"
                   className="up-form-input"
                   type="url"
                   value={editForm.website}
@@ -336,7 +339,7 @@ export default function UserProfile() {
             padding: '20px 24px',
           }}>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', marginBottom: '4px' }}>{greeting},</p>
-            <h2 style={{ fontSize: '1.5rem', fontWeight: 900, background: 'linear-gradient(135deg,#e2e8f0,#a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 900, color: 'var(--text-primary)' }}>
               {user?.username} 👾
             </h2>
             <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', marginTop: '6px' }}>
@@ -419,7 +422,7 @@ export default function UserProfile() {
                 <div className="up-card-title" style={{ marginBottom: '16px' }}>⚡ Quick Actions</div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '10px' }}>
                   {[
-                    { icon: '🔍', title: 'Browse Games', desc: 'Find your next favorite', to: '/games', color: '#7c3aed' },
+                    { icon: '🔍', title: 'Browse Games', desc: 'Find your next favorite', to: '/games', color: 'var(--accent-primary)' },
                     { icon: '⭐', title: 'Top Rated',    desc: 'Community favourites',   to: '/games?sort=-avgRating', color: '#f59e0b' },
                     { icon: '🆕', title: 'New Releases', desc: 'Just dropped on Steam',  to: '/games?sort=releaseDate', color: '#10b981' },
                     { icon: '🆓', title: 'Free to Play', desc: 'Great games, zero cost', to: '/games?isFree=true', color: '#06b6d4' },

@@ -69,5 +69,6 @@
 }
 
 @media (max-width: 480px) {
-  .thread-card__stats { display: none; }
+  .thread-card { flex-wrap: wrap; }
+  .thread-card__stats { flex-direction: row; align-items: center; width: 100%; gap: var(--space-md); }
 }

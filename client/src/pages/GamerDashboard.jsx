@@ -5,7 +5,7 @@ import { gameService, reviewService } from '../services';
 import './GamerDashboard.css';
 
 const AVATAR_COLORS = [
-  'linear-gradient(135deg,#7c3aed,#06b6d4)',
+  'var(--gradient-primary)',
   'linear-gradient(135deg,#f59e0b,#ef4444)',
   'linear-gradient(135deg,#10b981,#06b6d4)',
   'linear-gradient(135deg,#ec4899,#8b5cf6)',
@@ -105,7 +105,7 @@ export default function GamerDashboard() {
         {/* ── Quick Stats Row ── */}
         <div className="gd-stats-row">
           {[
-            { icon: '🎮', label: 'Games Available', value: '500+', color: '#7c3aed' },
+            { icon: '🎮', label: 'Games Available', value: '500+', color: 'var(--accent-primary)' },
             { icon: '🔥', label: 'Trending This Week', value: trending.length || '—', color: '#ef4444' },
             { icon: '⭐', label: 'Featured Games', value: featured.length || '—', color: '#f59e0b' },
             { icon: '💬', label: 'Active Discussions', value: 'Live', color: '#10b981' },
@@ -175,7 +175,7 @@ export default function GamerDashboard() {
           <h2 className="gd-section-title" style={{ marginBottom: '20px' }}>🚀 Quick Actions</h2>
           <div className="gd-quicklinks-grid">
             {[
-              { icon: '🔍', title: 'Browse Games', desc: 'Find your next favorite indie game', to: '/games', color: '#7c3aed' },
+              { icon: '🔍', title: 'Browse Games', desc: 'Find your next favorite indie game', to: '/games', color: 'var(--accent-primary)' },
               { icon: '⭐', title: 'Top Rated', desc: 'Best rated games by the community', to: '/games?sort=-avgRating', color: '#f59e0b' },
               { icon: '🆕', title: 'Upcoming', desc: 'Exciting games coming soon', to: '/games?sort=releaseDate', color: '#10b981' },
               { icon: '🆓', title: 'Free to Play', desc: 'Great games that cost nothing', to: '/games?isFree=true', color: '#06b6d4' },

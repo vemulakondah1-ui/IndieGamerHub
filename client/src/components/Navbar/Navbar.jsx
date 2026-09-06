@@ -77,6 +77,9 @@ export default function Navbar() {
                     </span>
                   </div>
                   <div className="dropdown-divider" />
+                  <Link to="/profile" className="dropdown-item" onClick={() => setDropdownOpen(false)}>
+                    👤 My Profile
+                  </Link>
                   {isDeveloper && (
                     <Link to="/dashboard" className="dropdown-item" onClick={() => setDropdownOpen(false)}>
                       🎮 My Games

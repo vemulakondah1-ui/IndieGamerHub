@@ -31,3 +31,15 @@
   width: 100% !important;
   height: 100% !important;
 }
+
+/* Media player + sidebar; collapses so the 300px sidebar column can't force horizontal overflow on phones. */
+.steam-main-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  gap: 32px;
+}
+@media (max-width: 900px) {
+  .steam-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
