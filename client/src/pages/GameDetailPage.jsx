@@ -241,7 +241,7 @@ export default function GameDetailPage() {
           </div>
         )}
 
-        <div className="game-detail-layout">
+        <div className="game-detail-layout content-sidebar-grid">
           <div>
             <section style={{ marginBottom: '40px' }}>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '16px', borderBottom: '2px solid var(--border-color)', paddingBottom: '8px' }}>About the Game</h2>

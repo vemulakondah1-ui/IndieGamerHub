@@ -79,6 +79,9 @@
   /* Layout */
   --max-width: 1400px;
   --nav-height: 68px;
+
+  /* Accessibility */
+  --tap-target-min: 44px; /* WCAG 2.5.5/2.5.8 AA minimum hit area */
 }
 
 /* ─── Reset & Base ─── */
@@ -363,6 +366,15 @@ textarea:focus-visible,
   gap: var(--space-xl);
 }
 
+/* Main content + fixed-width sidebar, shared by SteamGamePage/GameDetailPage.
+   Each page sets --csg-* locally and keeps its own breakpoint override since
+   the two pages collapse to 1 column at different widths. */
+.content-sidebar-grid {
+  display: grid;
+  grid-template-columns: var(--csg-main, minmax(0, 1fr)) var(--csg-sidebar, 320px);
+  gap: var(--csg-gap, var(--space-xl));
+}
+
 /* ─── Loading Skeleton ─── */
 .skeleton {
   background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-card-hover) 50%, var(--bg-card) 75%);
@@ -477,8 +489,8 @@ textarea:focus-visible,
 }
 
 .pagination-btn {
-  width: 44px;
-  height: 44px;
+  width: var(--tap-target-min);
+  height: var(--tap-target-min);
   border-radius: var(--radius-md);
   border: 1px solid var(--border-color);
   background: var(--bg-card);

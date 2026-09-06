@@ -169,7 +169,7 @@ export default function SteamGamePage() {
         </div>
 
         {/* MAIN SHOWCASE */}
-        <div className="steam-main-grid">
+        <div className="steam-main-grid content-sidebar-grid">
 
           {/* MEDIA PLAYER */}
           <div>

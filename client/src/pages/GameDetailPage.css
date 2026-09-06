@@ -60,11 +60,11 @@
 .game-hero__rating { display: flex; align-items: center; gap: var(--space-md); }
 .game-hero__review-count { font-size: var(--font-size-sm); color: var(--text-muted); }
 
-/* Layout */
+/* Layout: uses the shared .content-sidebar-grid from index.css for the column/gap pattern. */
 .game-detail-layout {
-  display: grid;
-  grid-template-columns: 1fr 320px;
-  gap: var(--space-2xl);
+  --csg-main: 1fr;
+  --csg-sidebar: 320px;
+  --csg-gap: var(--space-2xl);
   padding-top: var(--space-xl);
   padding-bottom: var(--space-3xl);
   align-items: start;

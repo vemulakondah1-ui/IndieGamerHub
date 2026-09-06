@@ -145,9 +145,9 @@
 .fc__indicator {
   width: 8px;
   height: 8px;
-  padding: 18px;
+  padding: calc((var(--tap-target-min) - 8px) / 2);
   background: rgba(255,255,255,0.3);
-  background-clip: content-box;
+  background-clip: content-box; /* keeps the visible dot at 8px while padding fills the tap target */
   border: none;
   border-radius: 50%;
   cursor: pointer;
