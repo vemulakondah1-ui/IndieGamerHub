@@ -50,7 +50,7 @@ export default function AdminPanel() {
 
     try {
       const res = await adminService.featureSteamGame(searchQuery);
-      setFeedback({ type: 'success', text: res.data.message });
+      setFeedback({ type: 'success', text: res.data?.message ?? 'Game featured successfully!' });
       setSearchQuery('');
       loadData();
     } catch (err) {
@@ -106,7 +106,7 @@ export default function AdminPanel() {
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '40px' }}>
           <div style={{ background: '#111827', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '24px', textAlign: 'center' }}>
             <div style={{ fontSize: '2rem', marginBottom: '6px' }}>🎮</div>
-            <div style={{ fontSize: '2.2rem', fontWeight: 900 }}>{stats.totalGames || featuredGames.length}</div>
+            <div style={{ fontSize: '2.2rem', fontWeight: 900 }}>{stats.totalGames ?? featuredGames.length}</div>
             <div style={{ color: '#94a3b8', fontSize: '0.85rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '1px' }}>Total Games</div>
           </div>
 

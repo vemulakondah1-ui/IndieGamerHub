@@ -76,17 +76,17 @@ export default function HomePage() {
             {featuredGames.map((game) => (
               <div
                 key={game._id}
-                onClick={() => goToGame(game.steamAppId || game._id)}
+                onClick={() => goToGame(game.steamAppId ?? game._id)}
                 style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '16px', overflow: 'hidden', cursor: 'pointer', transition: 'transform 0.2s' }}
                 onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
                 onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
               >
                 <div style={{ height: '140px', background: '#000' }}>
-                  <img src={game.thumbnail} alt={game.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <img src={game.thumbnail || ''} alt={game.title || 'Game'} onError={e => e.target.src = 'https://via.placeholder.com/260x140?text=No+Image'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 </div>
                 <div style={{ padding: '16px' }}>
                   <span style={{ fontSize: '0.7rem', color: '#a78bfa', fontWeight: 700, textTransform: 'uppercase' }}>{game.platform || 'Steam'}</span>
-                  <h4 style={{ fontSize: '1.05rem', fontWeight: 800, margin: '4px 0 8px 0' }}>{game.title}</h4>
+                  <h4 style={{ fontSize: '1.05rem', fontWeight: 800, margin: '4px 0 8px 0' }}>{game.title || 'Untitled Game'}</h4>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 800, color: '#10b981' }}>{typeof game.price === 'number' ? `$${game.price.toFixed(2)}` : game.price}</span>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>View Details →</span>

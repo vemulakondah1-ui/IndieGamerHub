@@ -3,7 +3,10 @@ require('dotenv').config();
 require('express-async-errors');
 const express = require('express');
 const cors = require('cors');
+const helmet = require('helmet');
+const pinoHttp = require('pino-http');
 const connectDB = require('./config/db');
+const logger = require('./utils/logger');
 
 // Route imports
 const authRoutes = require('./routes/auth');
@@ -18,13 +21,29 @@ const app = express();
 // Connect to MongoDB
 connectDB();
 
-// Middleware
+// Security & Logging Middleware
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
+      connectSrc: ["'self'", 'https:'],
+    },
+  },
+  hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },
+}));
+
+app.use(pinoHttp({ logger }));
+
+// CORS & Body Middleware
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:5173',
   credentials: true,
 }));
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Routes
 app.use('/api/auth', authRoutes);
@@ -42,8 +61,19 @@ app.get('/api/health', (req, res) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
   const statusCode = err.statusCode || 500;
+  const isDuplicateKeyError = err.code === 11000;
+
+  if (isDuplicateKeyError) {
+    const field = Object.keys(err.keyPattern)[0];
+    logger.error({ err, field }, `Duplicate key error on field: ${field}`);
+    return res.status(400).json({
+      success: false,
+      message: `A user with this ${field} already exists`,
+    });
+  }
+
+  logger.error({ err, statusCode }, `Error: ${err.message}`);
   res.status(statusCode).json({
     success: false,
     message: err.message || 'Internal Server Error',
@@ -52,5 +82,6 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  logger.info(`🚀 Server running on http://localhost:${PORT}`);
+  logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });

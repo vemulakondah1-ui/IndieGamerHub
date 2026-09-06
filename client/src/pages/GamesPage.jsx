@@ -242,15 +242,15 @@ export default function GamesPage() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
             {filteredGames.map((game, index) => {
-              const gameId = game._id || game.id || `game-${index}`;
-              const title = game.title || game.name;
-              const thumb = game.thumbnail || game.header_image || game.imageUrl || 'https://cdn.cloudflare.steamstatic.com/steam/apps/413150/header.jpg';
-              const desc = game.short_description || game.shortDescription;
-              const price = game.price_overview?.final_formatted || game.price || '$14.99';
-              const platformName = game.platform || 'Steam';
+              const gameId = game._id ?? game.id ?? `game-${index}`;
+              const title = game.title ?? game.name ?? 'Untitled Game';
+              const thumb = game.thumbnail ?? game.header_image ?? game.imageUrl ?? 'https://cdn.cloudflare.steamstatic.com/steam/apps/413150/header.jpg';
+              const desc = game.short_description ?? game.shortDescription ?? 'No description available';
+              const price = game.price_overview?.final_formatted ?? game.price ?? '$14.99';
+              const platformName = game.platform ?? 'Steam';
 
               // Route numeric Steam App IDs to the full SteamGamePage; others go to generic detail
-              const isSteamId = /^\d+$/.test(gameId);
+              const isSteamId = /^\d+$/.test(String(gameId));
               const detailPath = isSteamId ? `/steam/${gameId}` : `/games/${gameId}`;
 
               return (
@@ -260,7 +260,7 @@ export default function GamesPage() {
                   style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '16px', overflow: 'hidden', cursor: 'pointer', transition: 'transform 0.2s, border-color 0.2s', display: 'flex', flexDirection: 'column' }}
                 >
                   <div style={{ position: 'relative', height: '160px', background: '#000' }}>
-                    <img src={thumb} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={thumb} alt={title} onError={e => e.target.src = 'https://via.placeholder.com/280x160?text=No+Image'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     <span style={{
                       position: 'absolute',
                       top: '10px',
