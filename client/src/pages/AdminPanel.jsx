@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
 import { adminService } from '../services';
+import { getErrorMessage } from '../utils/getErrorMessage';
+import { useAuth } from '../context/AuthContext';
 import './AdminPanel.css';
 
 export default function AdminPanel() {
+  const { user: currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState('overview'); // 'overview' | 'games' | 'users'
   const [stats, setStats] = useState({
     totalGames: 0,
@@ -71,7 +74,7 @@ export default function AdminPanel() {
     } catch (err) {
       setFeedback({
         type: 'error',
-        text: err.response?.data?.message || 'Failed to fetch and feature game from Steam'
+        text: getErrorMessage(err, 'Failed to fetch and feature game from Steam')
       });
     } finally {
       setLoading(false);
@@ -91,8 +94,9 @@ export default function AdminPanel() {
     try {
       await adminService.toggleFeatured(id);
       setGames((prev) => prev.map((g) => g._id === id ? { ...g, isFeatured: !current } : g));
+      loadData(); // keeps the Overview tab's featuredGames/stats in sync with this toggle
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed');
+      alert(getErrorMessage(err));
     }
   };
 
@@ -101,7 +105,7 @@ export default function AdminPanel() {
       await adminService.togglePublished(id);
       setGames((prev) => prev.map((g) => g._id === id ? { ...g, isPublished: !current } : g));
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed');
+      alert(getErrorMessage(err));
     }
   };
 
@@ -110,7 +114,7 @@ export default function AdminPanel() {
       await adminService.updateUserRole(id, role);
       setUsers((prev) => prev.map((u) => u._id === id ? { ...u, role } : u));
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed');
+      alert(getErrorMessage(err));
     }
   };
 
@@ -119,7 +123,7 @@ export default function AdminPanel() {
       await adminService.toggleUserStatus(id);
       setUsers((prev) => prev.map((u) => u._id === id ? { ...u, isActive: !current } : u));
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed');
+      alert(getErrorMessage(err));
     }
   };
 
@@ -381,14 +385,18 @@ export default function AdminPanel() {
                   </tr>
                 </thead>
                 <tbody>
-                  {users.map((user) => (
+                  {users.map((user) => {
+                    const isSelf = user._id === currentUser?._id;
+                    return (
                     <tr key={user._id}>
-                      <td className="font-bold text-sm">{user.username}</td>
+                      <td className="font-bold text-sm">{user.username}{isSelf ? ' (you)' : ''}</td>
                       <td className="text-secondary text-sm">{user.email}</td>
                       <td>
                         <select
                           className="role-select"
                           value={user.role}
+                          disabled={isSelf}
+                          title={isSelf ? 'You cannot change your own role' : undefined}
                           onChange={(e) => handleUpdateRole(user._id, e.target.value)}
                         >
                           <option value="gamer">Gamer</option>
@@ -399,6 +407,8 @@ export default function AdminPanel() {
                       <td>
                         <button
                           className={`toggle-btn ${user.isActive ? 'published' : 'hidden'}`}
+                          disabled={isSelf}
+                          title={isSelf ? 'You cannot deactivate your own account' : undefined}
                           onClick={() => handleToggleUserStatus(user._id, user.isActive)}
                         >
                           {user.isActive ? '✅ Active' : '🚫 Banned'}
@@ -408,7 +418,8 @@ export default function AdminPanel() {
                         {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : '—'}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
               {users.length === 0 && (

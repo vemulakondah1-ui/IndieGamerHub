@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import ThreadCard from '../components/ThreadCard/ThreadCard';
 import { forumService, gameService } from '../services';
 import { useAuth } from '../context/AuthContext';
+import { getErrorMessage } from '../utils/getErrorMessage';
 import './ForumPages.css';
 
 export function ForumPage() {
@@ -39,7 +40,7 @@ export function ForumPage() {
       setForm({ title: '', body: '' });
       setShowForm(false);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to create thread');
+      setError(getErrorMessage(err, 'Failed to create thread'));
     } finally {
       setSubmitting(false);
     }
@@ -166,7 +167,7 @@ export function ThreadPage() {
       setPosts((prev) => [...prev, data.data]);
       setReplyContent('');
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to post reply');
+      setError(getErrorMessage(err, 'Failed to post reply'));
     } finally {
       setSubmitting(false);
     }
@@ -178,7 +179,7 @@ export function ThreadPage() {
       await forumService.deletePost(postId);
       setPosts((prev) => prev.filter((p) => p._id !== postId));
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete post');
+      alert(getErrorMessage(err, 'Failed to delete post'));
     }
   };
 

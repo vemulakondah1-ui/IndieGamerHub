@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getErrorMessage } from '../utils/getErrorMessage';
 import './AuthPages.css';
 
 export function LoginPage() {
@@ -23,7 +24,7 @@ export function LoginPage() {
       const dest = from !== '/' ? from : (role === 'gamer' ? '/gamer-dashboard' : '/dashboard');
       navigate(dest, { replace: true });
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid email or password');
+      setError(getErrorMessage(err, 'Invalid email or password'));
     } finally {
       setLoading(false);
     }
@@ -101,7 +102,7 @@ export function RegisterPage() {
       navigate(role === 'developer' || role === 'admin' ? '/dashboard' : '/gamer-dashboard', { replace: true });
     } catch (err) {
       // Show the specific error from the server (e.g. "Email is already taken")
-      const msg = err.response?.data?.message || err.message || 'Registration failed. Please try again.';
+      const msg = getErrorMessage(err, 'Registration failed. Please try again.');
       setError(msg);
     } finally {
       setLoading(false);

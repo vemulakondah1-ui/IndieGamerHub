@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { gameService } from '../services';
 import { useAuth } from '../context/AuthContext';
+import { getErrorMessage } from '../utils/getErrorMessage';
 import './DeveloperDashboard.css';
 
 const GENRES = [
@@ -147,7 +148,7 @@ export default function DeveloperDashboard() {
         setSuccess(`✅ Auto-filled from ${data.source === 'rawg' ? 'RAWG.io' : 'Steam'}!`);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Steam prefill failed');
+      setError(getErrorMessage(err, 'Steam prefill failed'));
     } finally {
       setPrefilling(false);
     }
@@ -186,7 +187,7 @@ export default function DeveloperDashboard() {
       setForm(emptyForm);
       setEditingId(null);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save game');
+      setError(getErrorMessage(err, 'Failed to save game'));
     } finally {
       setSubmitting(false);
     }
@@ -220,7 +221,7 @@ export default function DeveloperDashboard() {
       await gameService.deleteGame(id);
       setGames((prev) => prev.filter((g) => g._id !== id));
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete game');
+      alert(getErrorMessage(err, 'Failed to delete game'));
     }
   };
 

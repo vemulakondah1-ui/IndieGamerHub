@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { gameService, authService } from '../services';
+import { getErrorMessage } from '../utils/getErrorMessage';
 import './UserProfile.css';
 
 // ─── Avatar gradient helpers ───────────────────────────────────────────────
@@ -100,7 +101,7 @@ export default function UserProfile() {
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
-      setSaveError(err.response?.data?.message || 'Could not save changes');
+      setSaveError(getErrorMessage(err, 'Could not save changes'));
     } finally {
       setSaving(false);
     }

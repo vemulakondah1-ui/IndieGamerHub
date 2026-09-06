@@ -6,7 +6,8 @@ import { steamService } from '../services';
 import './SteamGamePage.css';
 
 // A regex-based sanitizer can't cover every HTML injection vector (e.g. unquoted event handlers), so this uses DOMPurify instead.
-function sanitizeStoreHtml(html = '') {
+// Exported (not just used internally) so it can be unit-tested directly against XSS payloads.
+export function sanitizeStoreHtml(html = '') {
   return DOMPurify.sanitize(String(html));
 }
 
