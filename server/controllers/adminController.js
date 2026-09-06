@@ -98,6 +98,12 @@ const adminUpdateUserRole = async (req, res) => {
     throw error;
   }
 
+  if (req.user._id.toString() === req.params.id) {
+    const error = new Error('You cannot change your own role');
+    error.statusCode = 400;
+    throw error;
+  }
+
   const user = await User.findByIdAndUpdate(
     req.params.id,
     { role },
@@ -117,6 +123,12 @@ const adminUpdateUserRole = async (req, res) => {
 // @route   PUT /api/admin/users/:id/status
 // @access  Admin
 const adminToggleUserStatus = async (req, res) => {
+  if (req.user._id.toString() === req.params.id) {
+    const error = new Error('You cannot deactivate your own account');
+    error.statusCode = 400;
+    throw error;
+  }
+
   const user = await User.findByIdAndUpdate(
     req.params.id,
     [{ $set: { isActive: { $not: '$isActive' } } }],

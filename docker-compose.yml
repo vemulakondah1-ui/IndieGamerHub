@@ -31,7 +31,7 @@ services:
       context: ./client
       dockerfile: Dockerfile
     ports:
-      - "3000:80"
+      - "${CLIENT_HOST_PORT:-3000}:80"
     networks:
       - indie-hub
     depends_on:

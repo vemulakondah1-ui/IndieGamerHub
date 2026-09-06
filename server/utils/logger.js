@@ -1,5 +1,6 @@
 const pino = require('pino');
 
+// pino-pretty is a dev-only formatter; production stays plain JSON so log aggregators (Datadog/ELK/etc.) can parse it.
 const pinoConfig = {
   level: process.env.LOG_LEVEL || 'info',
   transport: process.env.NODE_ENV === 'production'

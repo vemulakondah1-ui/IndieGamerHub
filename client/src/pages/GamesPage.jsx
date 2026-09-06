@@ -244,8 +244,8 @@ export default function GamesPage() {
             {filteredGames.map((game, index) => {
               const gameId = game._id ?? game.id ?? `game-${index}`;
               const title = game.title ?? game.name ?? 'Untitled Game';
-              const thumb = game.thumbnail ?? game.header_image ?? game.imageUrl ?? 'https://cdn.cloudflare.steamstatic.com/steam/apps/413150/header.jpg';
-              const desc = game.short_description ?? game.shortDescription ?? 'No description available';
+              const thumb = game.thumbnail || game.header_image || game.imageUrl || 'https://cdn.cloudflare.steamstatic.com/steam/apps/413150/header.jpg'; // these fields default to '' in the schema, not null/undefined, so || (not ??) is what falls through correctly
+              const desc = game.short_description || game.shortDescription || 'No description available';
               const price = game.price_overview?.final_formatted ?? game.price ?? '$14.99';
               const platformName = game.platform ?? 'Steam';
 

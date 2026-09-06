@@ -67,7 +67,7 @@ export default function HomePage() {
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '20px' }}>
             {featuredGames.map((game) => {
-              const id = game.steamAppId ?? game._id;
+              const id = game.steamAppId || game._id; // steamAppId defaults to '' (never "0"), so || is correct here — unlike numeric fields, ?? would keep the empty string and break routing
               const isSteamId = /^\d+$/.test(String(id));
               const path = isSteamId ? `/steam/${id}` : `/games/${id}`;
               return (
