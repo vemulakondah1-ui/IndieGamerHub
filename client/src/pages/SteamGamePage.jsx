@@ -21,10 +21,12 @@ export default function SteamGamePage() {
   const [reviewSummary, setReviewSummary] = useState(null);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
     setLoading(true);
+    setLoadError(false);
 
     const fetchDetails = async () => {
       let liveData = null;
@@ -41,22 +43,18 @@ export default function SteamGamePage() {
         liveData = raw[appId]?.data || raw.data || (raw.name ? raw : null);
         revData = reviewRes?.data?.data || reviewRes?.data || {};
       } catch (err) {
-        console.warn('Backend proxy lookup failed, attempting direct fetch...', err);
+        console.warn('Backend proxy lookup failed', err);
       }
 
-      // Fallback object to guarantee UI render if the backend proxy has no data (a direct browser fetch to Steam used to sit here, but Steam blocks that with CORS).
+      // No silent placeholder here anymore: a missing/failed response (most
+      // often Steam's public API being rate-limited, or our own general
+      // rate limiter — see server.js) used to render a fake "Game #<id>"
+      // page indistinguishable from a real one. Surface a real error state
+      // instead so a rate-limit blip doesn't look like missing game data.
       if (!liveData) {
-        liveData = {
-          name: `Game #${appId}`,
-          developers: ['Studio Partner'],
-          publishers: ['Steam / Epic'],
-          release_date: { date: 'Available Now' },
-          short_description: 'Store page metadata is loading or rate-limited by Steam.',
-          is_free: false,
-          price_overview: { final_formatted: '$59.99' },
-          header_image: `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${appId}/header.jpg`,
-          screenshots: []
-        };
+        setLoadError(true);
+        setLoading(false);
+        return;
       }
 
       // Extract details
@@ -138,10 +136,30 @@ export default function SteamGamePage() {
 
   const sanitizedAbout = useMemo(() => sanitizeStoreHtml(game?.about), [game?.about]);
 
-  if (loading || !game) {
+  if (loading) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a78bfa', fontSize: '1.25rem', fontWeight: 800 }}>
         Loading Game Details...
+      </div>
+    );
+  }
+
+  if (loadError || !game) {
+    return (
+      <div className="steam-page" style={{ minHeight: '100vh', backgroundColor: 'var(--bg-primary)', color: '#fff', paddingBottom: '80px' }}>
+        <div className="container" style={{ maxWidth: '1280px', margin: '0 auto', padding: '40px 20px 20px' }}>
+          <button
+            onClick={() => navigate('/')}
+            style={{ background: 'transparent', border: 'none', color: '#a78bfa', cursor: 'pointer', fontWeight: 700, marginBottom: '20px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            ← Back to Games
+          </button>
+          <div style={{ textAlign: 'center', padding: '80px 20px', color: '#94a3b8' }}>
+            <p style={{ fontSize: '3rem', margin: '0 0 16px 0' }}>⚠️</p>
+            <h2 style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 800, margin: '0 0 8px 0' }}>Couldn't load this game's Steam data</h2>
+            <p style={{ margin: 0 }}>This is usually temporary — Steam's public store API may be rate-limited right now. Please try again in a moment.</p>
+          </div>
+        </div>
       </div>
     );
   }

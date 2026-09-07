@@ -10,8 +10,8 @@ process.env.PORT = '0';
 process.env.MONGO_URI = 'mongodb://stub-not-used';
 // The cache-eviction test below fires 500+ requests to exercise the FIFO
 // bound; raised only for this test file's own process so it doesn't clash
-// with the general limiter's production default of 100.
-process.env.RATE_LIMIT_MAX_REQUESTS = '600';
+// with /api/steam's own dedicated rate limiter (see server.js).
+process.env.STEAM_RATE_LIMIT_MAX_REQUESTS = '700';
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -46,6 +46,15 @@ beforeEach(() => {
   axiosGetImpl = async () => {
     throw new Error('axiosGetImpl not configured for this test');
   };
+});
+
+test('GET /api/steam/* carries its own rate-limit budget, not the general /api limiter\'s', async () => {
+  axiosGetImpl = async () => ({ data: { '104': { success: true, data: { name: 'Rate Limit Check' } } } });
+  const res = await fetch(`${baseUrl}/api/steam/app/104`);
+  assert.equal(res.status, 200);
+  // Set via STEAM_RATE_LIMIT_MAX_REQUESTS above, distinct from the general
+  // limiter's default of 100 — proves /api/steam isn't sharing that budget.
+  assert.equal(res.headers.get('ratelimit-limit'), '700');
 });
 
 test('GET /api/steam/app/:appId passes through Steam\'s raw response untouched', async () => {

@@ -65,7 +65,7 @@ app.use('/api', rateLimit({
   max: envInt('RATE_LIMIT_MAX_REQUESTS', 100),
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path.startsWith('/auth') || req.path === '/health',
+  skip: (req) => req.path.startsWith('/auth') || req.path === '/health' || req.path.startsWith('/steam'),
 }));
 app.use('/api/auth', rateLimit({
   windowMs: RATE_LIMIT_WINDOW_MS,
@@ -73,6 +73,18 @@ app.use('/api/auth', rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many attempts, please try again later' },
+}));
+// Steam proxy routes are public, read-only, and already cached server-side
+// (steam.js's own in-memory TTL cache) — cheap to serve, but naturally
+// chattier than typical API traffic since a single game page fires 2+
+// requests. Sharing the general 100/15min budget meant a normal browsing
+// session (~50 game pages) could exhaust it and start silently failing.
+app.use('/api/steam', rateLimit({
+  windowMs: RATE_LIMIT_WINDOW_MS,
+  max: envInt('STEAM_RATE_LIMIT_MAX_REQUESTS', 500),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many Steam requests, please try again shortly' },
 }));
 
 app.use('/api/auth', authRoutes);

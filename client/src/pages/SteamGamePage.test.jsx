@@ -186,37 +186,47 @@ describe('SteamGamePage', () => {
     expect(screen.getByText('Detailed overview currently unavailable.')).toBeInTheDocument();
   });
 
-  it('falls back to the hardcoded placeholder game when the backend proxy has no data at all', async () => {
+  it('shows a real error state (not a fake game) when the backend proxy has no data at all', async () => {
     steamService.getApp.mockResolvedValue({ data: {} });
     steamService.getAppReviews.mockResolvedValue({ data: {} });
 
     render(<SteamGamePage />);
 
-    expect(await screen.findByText('Game #12345')).toBeInTheDocument();
-    expect(screen.getByText('$59.99')).toBeInTheDocument();
-    expect(screen.getByText('Store page metadata is loading or rate-limited by Steam.')).toBeInTheDocument();
-    expect(screen.queryByText('Epic Games Store')).not.toBeInTheDocument();
+    expect(await screen.findByText("Couldn't load this game's Steam data")).toBeInTheDocument();
+    expect(screen.queryByText('Game #12345')).not.toBeInTheDocument();
   });
 
-  it('tolerates getApp/getAppReviews individually rejecting (their own .catch(() => null)) and still renders the fallback game', async () => {
+  it('tolerates getApp/getAppReviews individually rejecting (their own .catch(() => null)) and shows the error state', async () => {
     steamService.getApp.mockRejectedValue(new Error('app down'));
     steamService.getAppReviews.mockRejectedValue(new Error('reviews down'));
 
     render(<SteamGamePage />);
 
-    expect(await screen.findByText('Game #12345')).toBeInTheDocument();
+    expect(await screen.findByText("Couldn't load this game's Steam data")).toBeInTheDocument();
     // These are swallowed by the per-call .catch(() => null), not the outer try/catch
     expect(console.warn).not.toHaveBeenCalled();
   });
 
-  it('reaches the outer catch (console.warn) when the proxy call throws synchronously, and still renders the fallback', async () => {
+  it('reaches the outer catch (console.warn) when the proxy call throws synchronously, and shows the error state', async () => {
     steamService.getApp.mockImplementation(() => { throw new Error('sync boom'); });
     steamService.getAppReviews.mockResolvedValue({ data: {} });
 
     render(<SteamGamePage />);
 
     await waitFor(() => expect(console.warn).toHaveBeenCalled());
-    expect(await screen.findByText('Game #12345')).toBeInTheDocument();
+    expect(await screen.findByText("Couldn't load this game's Steam data")).toBeInTheDocument();
+  });
+
+  it('"Back to Games" navigates home from the error state', async () => {
+    steamService.getApp.mockResolvedValue({ data: {} });
+    steamService.getAppReviews.mockResolvedValue({ data: {} });
+
+    render(<SteamGamePage />);
+    await screen.findByText("Couldn't load this game's Steam data");
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /back to games/i }));
+    expect(mockNavigate).toHaveBeenCalledWith('/');
   });
 
   it('falls back to game.media[0] when a stale activeMediaIndex no longer exists after navigating to a game with fewer media items', async () => {
@@ -247,24 +257,23 @@ describe('SteamGamePage', () => {
     // Navigate to a different game with only one media item; activeMediaIndex (2) is now
     // stale and out of bounds for the new, shorter game.media array.
     mockAppId = '99999';
-    steamService.getApp.mockResolvedValue({ data: {} }); // triggers the hardcoded fallback (1 image)
+    steamService.getApp.mockResolvedValue({
+      data: { data: { '99999': { success: true, data: { name: 'Single Screenshot Game', screenshots: [{ path_full: 'https://ss.example/only.jpg' }] } } } },
+    });
     steamService.getAppReviews.mockResolvedValue({ data: {} });
     rerender(<SteamGamePage />);
 
-    expect(await screen.findByText('Game #99999')).toBeInTheDocument();
+    expect(await screen.findByText('Single Screenshot Game')).toBeInTheDocument();
     // game.media[2] is undefined on the new game -> falls back to game.media[0]
-    expect(screen.getByAltText('Screenshot')).toHaveAttribute(
-      'src',
-      'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/99999/header.jpg'
-    );
+    expect(screen.getByAltText('Screenshot')).toHaveAttribute('src', 'https://ss.example/only.jpg');
   });
 
   it('navigates home when "Back to Games" is clicked', async () => {
-    steamService.getApp.mockResolvedValue({ data: {} });
+    steamService.getApp.mockResolvedValue({ data: { data: { '12345': { success: true, data: { name: 'Real Game' } } } } });
     steamService.getAppReviews.mockResolvedValue({ data: {} });
 
     render(<SteamGamePage />);
-    await screen.findByText('Game #12345');
+    await screen.findByText('Real Game');
 
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /back to games/i }));

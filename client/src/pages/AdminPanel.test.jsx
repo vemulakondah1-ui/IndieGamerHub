@@ -156,6 +156,24 @@ describe('AdminPanel', () => {
     expect(screen.getByText('Broken Remove')).toBeInTheDocument();
   });
 
+  it('also patches the game in the Games tab list when removing a featured game that is loaded there', async () => {
+    adminService.getFeaturedGames.mockResolvedValue({
+      data: { data: [{ _id: 'g1', title: 'Hollow Knight', thumbnail: 'hk.jpg', isFeatured: true }] },
+    });
+    adminService.toggleFeatured.mockResolvedValue({});
+
+    render(<AdminPanel />);
+    await waitFor(() => expect(screen.getByRole('button', { name: /unfeature game/i })).toBeInTheDocument());
+
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /unfeature game/i }));
+    await waitFor(() => expect(adminService.toggleFeatured).toHaveBeenCalledWith('g1'));
+
+    await user.click(screen.getByRole('button', { name: /games/i }));
+    const hollowKnightRow = await screen.findByText('Hollow Knight');
+    expect(within(hollowKnightRow.closest('tr')).getByRole('button', { name: '☆ Feature' })).toBeInTheDocument();
+  });
+
   it('shows an empty state when there are no featured games', async () => {
     adminService.getFeaturedGames.mockResolvedValue({ data: { data: [] } });
     render(<AdminPanel />);
@@ -370,6 +388,34 @@ describe('AdminPanel', () => {
       // Hollow Knight was already featured in the fixture, so toggling Celeste makes 2.
       expect(screen.getByText('Active Featured Games (2)')).toBeInTheDocument();
       expect(screen.getByText('Celeste')).toBeInTheDocument();
+    });
+
+    it('tolerates refreshFeatured (the re-fetch after toggling) rejecting, without crashing', async () => {
+      adminService.toggleFeatured.mockResolvedValue({});
+      adminService.getFeaturedGames
+        .mockResolvedValueOnce({ data: { data: [{ _id: 'g1', title: 'Hollow Knight', thumbnail: 'hk.jpg', isFeatured: true }] } })
+        .mockRejectedValueOnce(new Error('refresh down'));
+
+      const user = await openGamesTab();
+      await user.click(screen.getByRole('button', { name: '☆ Feature' })); // Celeste
+      await waitFor(() => expect(adminService.getFeaturedGames).toHaveBeenCalledTimes(2));
+
+      const celesteRow = screen.getByText('Celeste').closest('tr');
+      expect(await within(celesteRow).findByRole('button', { name: '⭐ Featured' })).toBeInTheDocument();
+    });
+
+    it('defaults to an empty featured list when refreshFeatured\'s re-fetch has no data.data', async () => {
+      adminService.toggleFeatured.mockResolvedValue({});
+      adminService.getFeaturedGames
+        .mockResolvedValueOnce({ data: { data: [{ _id: 'g1', title: 'Hollow Knight', thumbnail: 'hk.jpg', isFeatured: true }] } })
+        .mockResolvedValueOnce({ data: {} });
+
+      const user = await openGamesTab();
+      await user.click(screen.getByRole('button', { name: '☆ Feature' })); // Celeste
+      await waitFor(() => expect(adminService.getFeaturedGames).toHaveBeenCalledTimes(2));
+
+      await user.click(screen.getByRole('button', { name: /overview/i }));
+      expect(screen.getByText(/no games are currently featured/i)).toBeInTheDocument();
     });
 
     it('alerts with the server message when toggling featured fails', async () => {
