@@ -1,7 +1,7 @@
 // src/pages/GameDetailPage.jsx
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
+import { useParams, useNavigate } from 'react-router-dom';
+import { publicApi } from '../services/api';
 import './GameDetailPage.css';
 
 export default function GameDetailPage() {
@@ -173,7 +173,7 @@ export default function GameDetailPage() {
       }
 
       try {
-        const res = await axios.get(`http://localhost:5000/api/games/${id}`);
+        const res = await publicApi.get(`/games/${id}`);
         if (res.data && res.data.success) {
           setGame(res.data.data);
         } else {
@@ -218,7 +218,7 @@ export default function GameDetailPage() {
             <button onClick={() => navigate(-1)} style={{ background: 'rgba(255,255,255,0.1)', border: '1px solid var(--border-color)', color: '#fff', padding: '6px 14px', borderRadius: '8px', cursor: 'pointer', marginBottom: '12px', fontWeight: 600 }}>
               ← Back to Browse
             </button>
-            <h1 style={{ fontSize: '3rem', fontWeight: 900, margin: 0, textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>{currentData.title}</h1>
+            <h1 className="game-hero__title" style={{ margin: 0, textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>{currentData.title}</h1>
             <p style={{ color: 'var(--text-muted)', margin: '6px 0 0 0', fontWeight: 600 }}>Developer: {currentData.developer}</p>
           </div>
 
@@ -241,19 +241,20 @@ export default function GameDetailPage() {
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '40px' }}>
+        <div className="game-detail-layout content-sidebar-grid">
           <div>
             <section style={{ marginBottom: '40px' }}>
-              <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '16px', borderBottom: '2px solid var(--border-color)', paddingBottom: '8px' }}>About the Game</h3>
-              <div style={{ lineHeight: '1.8', color: 'var(--text-secondary)', fontSize: '1.05rem' }} dangerouslySetInnerHTML={{ __html: currentData.description }} />
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '16px', borderBottom: '2px solid var(--border-color)', paddingBottom: '8px' }}>About the Game</h2>
+              {/* Plain text, not dangerouslySetInnerHTML: description is unsanitized API/developer-submitted content, same class of XSS risk fixed via DOMPurify in SteamGamePage.jsx */}
+              <p style={{ lineHeight: '1.8', color: 'var(--text-secondary)', fontSize: '1.05rem' }}>{currentData.description}</p>
             </section>
 
             {currentData.screenshots && currentData.screenshots.length > 0 && (
               <section>
-                <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '16px' }}>Screenshots</h3>
+                <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '16px' }}>Screenshots</h2>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
                   {currentData.screenshots.map((shot, idx) => (
-                    <img key={idx} src={shot} alt="Screenshot" style={{ width: '100%', borderRadius: '12px', border: '1px solid var(--border-color)', objectFit: 'cover', height: '160px' }} />
+                    <img key={shot} src={shot} alt={`${currentData.title} screenshot ${idx + 1}`} loading="lazy" style={{ width: '100%', borderRadius: '12px', border: '1px solid var(--border-color)', objectFit: 'cover', height: '160px' }} />
                   ))}
                 </div>
               </section>
@@ -262,7 +263,7 @@ export default function GameDetailPage() {
 
           <div>
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '24px', marginBottom: '24px' }}>
-              <h4 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '16px' }}>Game Overview</h4>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '16px' }}>Game Overview</h2>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Rating Score</span>
                 <span style={{ fontWeight: 800, color: '#f59e0b' }}>⭐ {currentData.rating} / 5.0</span>
@@ -278,9 +279,9 @@ export default function GameDetailPage() {
             </div>
 
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '24px' }}>
-              <h4 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '16px' }}>Community Reviews</h4>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '16px' }}>Community Reviews</h2>
               {currentData.reviews && currentData.reviews.map((rev, idx) => (
-                <div key={idx} style={{ marginBottom: '16px', paddingBottom: '16px', borderBottom: idx < currentData.reviews.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
+                <div key={rev.author} style={{ marginBottom: '16px', paddingBottom: '16px', borderBottom: idx < currentData.reviews.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                     <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{rev.author}</span>
                     <span style={{ color: '#f59e0b', fontSize: '0.85rem' }}>{'⭐'.repeat(rev.rating || 5)}</span>

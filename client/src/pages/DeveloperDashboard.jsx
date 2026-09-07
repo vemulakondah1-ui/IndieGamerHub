@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { gameService } from '../services';
 import { useAuth } from '../context/AuthContext';
+import { getErrorMessage } from '../utils/getErrorMessage';
 import './DeveloperDashboard.css';
 
 const GENRES = [
@@ -147,7 +148,7 @@ export default function DeveloperDashboard() {
         setSuccess(`✅ Auto-filled from ${data.source === 'rawg' ? 'RAWG.io' : 'Steam'}!`);
       }
     } catch (err) {
-      setError(err.response?.data?.message || 'Steam prefill failed');
+      setError(getErrorMessage(err, 'Steam prefill failed'));
     } finally {
       setPrefilling(false);
     }
@@ -186,7 +187,7 @@ export default function DeveloperDashboard() {
       setForm(emptyForm);
       setEditingId(null);
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to save game');
+      setError(getErrorMessage(err, 'Failed to save game'));
     } finally {
       setSubmitting(false);
     }
@@ -205,7 +206,7 @@ export default function DeveloperDashboard() {
       trailerUrl: game.trailerUrl || '',
       storeLinks: game.storeLinks || emptyForm.storeLinks,
       steamAppId: game.steamAppId || '',
-      price: game.price || '',
+      price: game.price ?? '', // price defaults to 0 in the schema (a real, valid price), so || would blank the field for a $0 game that isn't flagged isFree
       isFree: game.isFree || false,
       platform: game.platform || ['Windows'],
     });
@@ -220,7 +221,7 @@ export default function DeveloperDashboard() {
       await gameService.deleteGame(id);
       setGames((prev) => prev.filter((g) => g._id !== id));
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to delete game');
+      alert(getErrorMessage(err, 'Failed to delete game'));
     }
   };
 
@@ -460,8 +461,9 @@ export default function DeveloperDashboard() {
                 {/* Steam Prefill */}
                 <div className="steam-prefill-row">
                   <div className="form-group" style={{ flex: 1 }}>
-                    <label className="form-label">Steam App ID (Auto-fill)</label>
+                    <label className="form-label" htmlFor="dp-steam-app-id">Steam App ID (Auto-fill)</label>
                     <input
+                      id="dp-steam-app-id"
                       className="form-input"
                       placeholder="e.g. 1091500 (Cyberpunk 2077)"
                       value={form.steamAppId}
@@ -481,84 +483,84 @@ export default function DeveloperDashboard() {
                 <form onSubmit={handleSubmit} className="game-form">
                   <div className="form-row">
                     <div className="form-group">
-                      <label className="form-label">Game Title *</label>
-                      <input className="form-input" required value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="My Awesome Game" />
+                      <label className="form-label" htmlFor="dp-title">Game Title *</label>
+                      <input id="dp-title" className="form-input" required value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="My Awesome Game" />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Release Date</label>
-                      <input type="date" className="form-input" value={form.releaseDate} onChange={(e) => setForm((f) => ({ ...f, releaseDate: e.target.value }))} />
+                      <label className="form-label" htmlFor="dp-release-date">Release Date</label>
+                      <input id="dp-release-date" type="date" className="form-input" value={form.releaseDate} onChange={(e) => setForm((f) => ({ ...f, releaseDate: e.target.value }))} />
                     </div>
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Short Description (max 300 chars)</label>
-                    <input className="form-input" value={form.shortDescription} onChange={(e) => setForm((f) => ({ ...f, shortDescription: e.target.value }))} placeholder="A brief description for cards and listings" maxLength={300} />
+                    <label className="form-label" htmlFor="dp-short-desc">Short Description (max 300 chars)</label>
+                    <input id="dp-short-desc" className="form-input" value={form.shortDescription} onChange={(e) => setForm((f) => ({ ...f, shortDescription: e.target.value }))} placeholder="A brief description for cards and listings" maxLength={300} />
                   </div>
 
                   <div className="form-group">
-                    <label className="form-label">Full Description *</label>
-                    <textarea className="form-input form-textarea" required rows={6} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Describe your game in detail..." />
+                    <label className="form-label" htmlFor="dp-description">Full Description *</label>
+                    <textarea id="dp-description" className="form-input form-textarea" required rows={6} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} placeholder="Describe your game in detail..." />
                   </div>
 
                   <div className="form-row">
                     <div className="form-group">
-                      <label className="form-label">Price ($)</label>
-                      <input type="number" className="form-input" min={0} step={0.01} value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} placeholder="0.00" disabled={form.isFree} />
-                      <label className="form-label" style={{ flexDirection: 'row', display: 'flex', gap: '8px', marginTop: '8px' }}>
-                        <input type="checkbox" checked={form.isFree} onChange={(e) => setForm((f) => ({ ...f, isFree: e.target.checked, price: e.target.checked ? '0' : f.price }))} /> Free to Play
+                      <label className="form-label" htmlFor="dp-price">Price ($)</label>
+                      <input id="dp-price" type="number" className="form-input" min={0} step={0.01} value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} placeholder="0.00" disabled={form.isFree} />
+                      <label className="form-label" htmlFor="dp-is-free" style={{ flexDirection: 'row', display: 'flex', gap: '8px', marginTop: '8px' }}>
+                        <input id="dp-is-free" type="checkbox" checked={form.isFree} onChange={(e) => setForm((f) => ({ ...f, isFree: e.target.checked, price: e.target.checked ? '0' : f.price }))} /> Free to Play
                       </label>
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Trailer URL (YouTube / mp4)</label>
-                      <input className="form-input" value={form.trailerUrl} onChange={(e) => setForm((f) => ({ ...f, trailerUrl: e.target.value }))} placeholder="https://youtube.com/..." />
+                      <label className="form-label" htmlFor="dp-trailer">Trailer URL (YouTube / mp4)</label>
+                      <input id="dp-trailer" className="form-input" value={form.trailerUrl} onChange={(e) => setForm((f) => ({ ...f, trailerUrl: e.target.value }))} placeholder="https://youtube.com/..." />
                     </div>
                   </div>
 
                   {/* Genre */}
-                  <div className="form-group">
-                    <label className="form-label">Genres</label>
+                  <fieldset className="form-group" style={{ border: 'none', padding: 0, margin: 0 }}>
+                    <legend className="form-label" style={{ padding: 0 }}>Genres</legend>
                     <div className="multi-select">
                       {GENRES.map((g) => (
                         <button type="button" key={g} className={`multi-chip ${form.genre.includes(g) ? 'selected' : ''}`} onClick={() => toggleGenre(g)}>{g}</button>
                       ))}
                     </div>
-                  </div>
+                  </fieldset>
 
                   {/* Platform */}
-                  <div className="form-group">
-                    <label className="form-label">Platform</label>
+                  <fieldset className="form-group" style={{ border: 'none', padding: 0, margin: 0 }}>
+                    <legend className="form-label" style={{ padding: 0 }}>Platform</legend>
                     <div className="multi-select">
                       {PLATFORMS.map((p) => (
                         <button type="button" key={p} className={`multi-chip ${form.platform.includes(p) ? 'selected' : ''}`} onClick={() => togglePlatform(p)}>{p}</button>
                       ))}
                     </div>
-                  </div>
+                  </fieldset>
 
                   {/* Tags */}
                   <div className="form-group">
-                    <label className="form-label">Tags (comma-separated)</label>
-                    <input className="form-input" value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} placeholder="open-world, co-op, pixel-art..." />
+                    <label className="form-label" htmlFor="dp-tags">Tags (comma-separated)</label>
+                    <input id="dp-tags" className="form-input" value={form.tags} onChange={(e) => setForm((f) => ({ ...f, tags: e.target.value }))} placeholder="open-world, co-op, pixel-art..." />
                   </div>
 
                   {/* Store Links */}
-                  <div className="form-group">
-                    <label className="form-label">Store Links</label>
+                  <fieldset className="form-group" style={{ border: 'none', padding: 0, margin: 0 }}>
+                    <legend className="form-label" style={{ padding: 0 }}>Store Links</legend>
                     <div className="store-links-grid">
                       {['steam', 'epic', 'itch', 'gog'].map((store) => (
-                        <input key={store} className="form-input" placeholder={`${store.charAt(0).toUpperCase() + store.slice(1)} URL`} value={form.storeLinks[store] || ''} onChange={(e) => setForm((f) => ({ ...f, storeLinks: { ...f.storeLinks, [store]: e.target.value } }))} />
+                        <input key={store} className="form-input" aria-label={`${store.charAt(0).toUpperCase() + store.slice(1)} URL`} placeholder={`${store.charAt(0).toUpperCase() + store.slice(1)} URL`} value={form.storeLinks[store] || ''} onChange={(e) => setForm((f) => ({ ...f, storeLinks: { ...f.storeLinks, [store]: e.target.value } }))} />
                       ))}
                     </div>
-                  </div>
+                  </fieldset>
 
                   {/* Media uploads */}
                   <div className="form-row">
                     <div className="form-group">
-                      <label className="form-label">Thumbnail Image</label>
-                      <input type="file" className="form-input" accept="image/*" onChange={(e) => setForm((f) => ({ ...f, thumbnail: e.target.files[0] }))} />
+                      <label className="form-label" htmlFor="dp-thumbnail">Thumbnail Image</label>
+                      <input id="dp-thumbnail" type="file" className="form-input" accept="image/*" onChange={(e) => setForm((f) => ({ ...f, thumbnail: e.target.files[0] }))} />
                     </div>
                     <div className="form-group">
-                      <label className="form-label">Screenshots (up to 10)</label>
-                      <input type="file" className="form-input" accept="image/*" multiple onChange={(e) => setForm((f) => ({ ...f, screenshots: Array.from(e.target.files) }))} />
+                      <label className="form-label" htmlFor="dp-screenshots">Screenshots (up to 10)</label>
+                      <input id="dp-screenshots" type="file" className="form-input" accept="image/*" multiple onChange={(e) => setForm((f) => ({ ...f, screenshots: Array.from(e.target.files) }))} />
                     </div>
                   </div>
 

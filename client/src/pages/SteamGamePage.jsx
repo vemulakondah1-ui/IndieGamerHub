@@ -1,8 +1,15 @@
 // client/src/pages/SteamGamePage.jsx
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import DOMPurify from 'dompurify';
 import { steamService } from '../services';
 import './SteamGamePage.css';
+
+// A regex-based sanitizer can't cover every HTML injection vector (e.g. unquoted event handlers), so this uses DOMPurify instead.
+// Exported (not just used internally) so it can be unit-tested directly against XSS payloads.
+export function sanitizeStoreHtml(html = '') {
+  return DOMPurify.sanitize(String(html));
+}
 
 export default function SteamGamePage() {
   const { appId } = useParams();
@@ -36,20 +43,7 @@ export default function SteamGamePage() {
         console.warn('Backend proxy lookup failed, attempting direct fetch...', err);
       }
 
-      // 2. Direct fallback to Steam storefront if proxy returns empty
-      if (!liveData || !liveData.name) {
-        try {
-          const directRes = await fetch(`https://store.steampowered.com/api/appdetails?appids=${appId}&cc=US&l=english`);
-          const json = await directRes.json();
-          if (json && json[appId]?.success) {
-            liveData = json[appId].data;
-          }
-        } catch (e) {
-          console.error('Direct storefront fetch error:', e);
-        }
-      }
-
-      // Fallback object to guarantee UI render if Steam blocks both requests
+      // Fallback object to guarantee UI render if the backend proxy has no data (a direct browser fetch to Steam used to sit here, but Steam blocks that with CORS).
       if (!liveData) {
         liveData = {
           name: `Game #${appId}`,
@@ -140,7 +134,7 @@ export default function SteamGamePage() {
 
   if (loading || !game) {
     return (
-      <div style={{ minHeight: '100vh', backgroundColor: '#0b0f19', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a78bfa', fontSize: '1.25rem', fontWeight: 800 }}>
+      <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a78bfa', fontSize: '1.25rem', fontWeight: 800 }}>
         Loading Game Details...
       </div>
     );
@@ -149,7 +143,7 @@ export default function SteamGamePage() {
   const currentMedia = game.media[activeMediaIndex] || game.media[0];
 
   return (
-    <div className="steam-page" style={{ minHeight: '100vh', backgroundColor: '#0b0f19', color: '#fff', paddingBottom: '80px' }}>
+    <div className="steam-page" style={{ minHeight: '100vh', backgroundColor: 'var(--bg-primary)', color: '#fff', paddingBottom: '80px' }}>
 
       {/* HEADER BAR */}
       <div className="container" style={{ maxWidth: '1280px', margin: '0 auto', padding: '40px 20px 20px' }}>
@@ -175,7 +169,7 @@ export default function SteamGamePage() {
         </div>
 
         {/* MAIN SHOWCASE */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(300px, 1fr)', gap: '32px' }}>
+        <div className="steam-main-grid content-sidebar-grid">
 
           {/* MEDIA PLAYER */}
           <div>
@@ -190,39 +184,41 @@ export default function SteamGamePage() {
             {/* THUMBNAIL STRIP */}
             <div style={{ display: 'flex', gap: '10px', marginTop: '14px', overflowX: 'auto', paddingBottom: '10px' }}>
               {game.media.map((item, idx) => (
-                <div
-                  key={idx}
+                <button
+                  key={item.thumb}
+                  type="button"
                   onClick={() => setActiveMediaIndex(idx)}
+                  aria-label={`View ${item.type === 'video' ? 'video' : 'screenshot'} ${idx + 1}`}
                   style={{
                     width: '100px',
                     height: '56px',
                     flexShrink: 0,
                     borderRadius: '8px',
                     overflow: 'hidden',
-                    cursor: 'pointer',
+                    padding: 0,
                     border: activeMediaIndex === idx ? '2px solid #a78bfa' : '2px solid transparent',
                     opacity: activeMediaIndex === idx ? 1 : 0.6
                   }}
                 >
-                  <img src={item.thumb} alt="thumb" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
+                  <img src={item.thumb} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                </button>
               ))}
             </div>
 
             {/* ABOUT SECTION */}
-            <div style={{ marginTop: '36px', background: '#111827', padding: '28px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <h3 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 16px 0' }}>About This Game</h3>
+            <div style={{ marginTop: '36px', background: 'var(--bg-card)', padding: '28px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 16px 0' }}>About This Game</h2>
               <div
                 style={{ lineHeight: '1.7', color: '#cbd5e1', fontSize: '0.95rem' }}
-                dangerouslySetInnerHTML={{ __html: game.about }}
+                dangerouslySetInnerHTML={{ __html: sanitizeStoreHtml(game.about) }}
               />
             </div>
           </div>
 
           {/* SIDEBAR METADATA & PURCHASE */}
           <div>
-            <div style={{ background: '#111827', padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', marginBottom: '24px' }}>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 800, margin: '0 0 16px 0' }}>Game Data</h3>
+            <div style={{ background: 'var(--bg-card)', padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', marginBottom: '24px' }}>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, margin: '0 0 16px 0' }}>Game Data</h2>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid rgba(255,255,255,0.06)', fontSize: '0.9rem' }}>
                 <span style={{ color: '#94a3b8' }}>Developer</span>
@@ -239,7 +235,7 @@ export default function SteamGamePage() {
             </div>
 
             {/* STEAM BUY CARD */}
-            <div style={{ background: '#111827', padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', marginBottom: '20px' }}>
+            <div style={{ background: 'var(--bg-card)', padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)', marginBottom: '20px' }}>
               <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Steam Price</div>
               <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#34d399', marginBottom: '16px' }}>{game.steamPrice}</div>
               <a
@@ -254,7 +250,7 @@ export default function SteamGamePage() {
 
             {/* EPIC GAMES CARD */}
             {game.epicPrice && (
-              <div style={{ background: '#111827', padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ background: 'var(--bg-card)', padding: '24px', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.08)' }}>
                 <div style={{ fontSize: '0.8rem', fontWeight: 800, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '8px' }}>Epic Games Store</div>
                 <div style={{ fontSize: '1.8rem', fontWeight: 900, color: '#38bdf8', marginBottom: '16px' }}>{game.epicPrice}</div>
                 <a

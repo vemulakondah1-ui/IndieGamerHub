@@ -86,14 +86,16 @@
 .carousel__dot {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  padding: calc((var(--tap-target-min) - 8px) / 2);
   background: var(--bg-card-hover);
+  background-clip: content-box; /* keeps the visible dot at 8px while padding fills the tap target */
   border: none;
+  border-radius: 50%;
   transition: all var(--transition-fast);
   cursor: pointer;
 }
 .carousel__dot.active {
-  background: var(--accent-primary);
+  background-color: var(--accent-primary);
   width: 24px;
   border-radius: var(--radius-full);
 }

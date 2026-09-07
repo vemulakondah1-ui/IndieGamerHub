@@ -1,7 +1,9 @@
+import { Component } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import Navbar from './components/Navbar/Navbar';
+import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
 import GamesPage from './pages/GamesPage';
 import GameDetailPage from './pages/GameDetailPage';
@@ -11,6 +13,31 @@ import DeveloperDashboard from './pages/DeveloperDashboard';
 import GamerDashboard from './pages/GamerDashboard';
 import SteamGamePage from './pages/SteamGamePage';
 import AdminPanel from './pages/AdminPanel';
+import PrivacyPage from './pages/PrivacyPage';
+import UserProfile from './pages/UserProfile';
+
+// React only catches render errors via a class component's static lifecycle hook — no hooks equivalent exists.
+class ErrorBoundary extends Component {
+  state = { hasError: false };
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+  componentDidCatch(error, info) {
+    console.error('Unhandled render error:', error, info);
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="page-wrapper loading-center" style={{ flexDirection: 'column', gap: '16px' }}>
+          <p style={{ fontSize: '3rem' }}>⚠️</p>
+          <h1 style={{ fontSize: '1.5rem' }}>Something went wrong</h1>
+          <a href="/" className="btn btn-primary">← Back to Home</a>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function NotFound() {
   return (
@@ -30,6 +57,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <Navbar />
+        <ErrorBoundary>
         <Routes>
           <Route path="/" element={<HomePage />} />
           <Route path="/games" element={<GamesPage />} />
@@ -39,6 +67,15 @@ export default function App() {
           <Route path="/threads/:threadId" element={<ThreadPage />} />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/register" element={<RegisterPage />} />
+          <Route path="/privacy" element={<PrivacyPage />} />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <UserProfile />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/dashboard"
             element={
@@ -65,6 +102,8 @@ export default function App() {
           />
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </ErrorBoundary>
+        <Footer />
       </AuthProvider>
     </BrowserRouter>
   );

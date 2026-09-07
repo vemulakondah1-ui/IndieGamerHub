@@ -1,8 +1,45 @@
 const router = require('express').Router();
 const axios = require('axios');
 
+// Steam's storefront endpoints are unauthenticated and undocumented, with no
+// key-based way to raise their rate limit — caching is what keeps this app's
+// call volume low enough to avoid Steam blocking the server's IP. Falling
+// back to the last good response (instead of an error) also means a
+// temporary Steam block degrades to stale data rather than a broken page.
+// ponytail: in-memory Map, resets on every server restart/redeploy — move to
+// Redis if this needs to survive restarts or run across multiple instances.
+// Bounded FIFO eviction below because appId/cursor are attacker-controlled on
+// a public route — without a cap, distinct cache keys grow this Map forever.
+const CACHE_TTL_MS = 15 * 60 * 1000;
+const CACHE_MAX_ENTRIES = 500;
+const cache = new Map();
+
+function getCached(key) {
+    const entry = cache.get(key);
+    if (!entry) return { fresh: null, stale: null };
+    return { fresh: entry.expiresAt > Date.now() ? entry.data : null, stale: entry.data };
+}
+
+function setCached(key, data) {
+    if (cache.size >= CACHE_MAX_ENTRIES && !cache.has(key)) {
+        cache.delete(cache.keys().next().value);
+    }
+    cache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
+}
+
+// Validates once for every :appId route below, instead of repeating the check per-handler — a malformed appId gets a clean 400 instead of being interpolated straight into the outbound Steam URL.
+router.param('appId', (req, res, next, appId) => {
+    if (!/^\d+$/.test(appId)) {
+        return res.status(400).json({ success: false, message: 'appId must be numeric' });
+    }
+    next();
+});
+
 // Fetch live featured & top games directly from Steam's public store endpoint
 router.get('/homepage', async (req, res) => {
+    const { fresh, stale } = getCached('homepage');
+    if (fresh) return res.json({ success: true, data: fresh });
+
     try {
         const response = await axios.get('https://store.steampowered.com/api/featured/');
         if (response.data && response.data.featured_win) {
@@ -15,17 +52,22 @@ router.get('/homepage', async (req, res) => {
                 },
                 header_image: game.large_capsule_image || game.header_image
             }));
+            setCached('homepage', liveGames);
             return res.json({ success: true, data: liveGames });
         }
         res.status(400).json({ success: false, message: 'Could not parse Steam featured data' });
     } catch (error) {
         console.error('Steam API Fetch Error:', error.message);
+        if (stale) return res.json({ success: true, data: stale, stale: true });
         res.status(500).json({ success: false, message: 'Failed to fetch live games from Steam' });
     }
 });
 
 // Fetch general games catalog/search from Steam
 router.get('/games', async (req, res) => {
+    const { fresh, stale } = getCached('games');
+    if (fresh) return res.json({ success: true, data: fresh });
+
     try {
         const response = await axios.get('https://store.steampowered.com/api/featured/');
         if (response.data) {
@@ -42,17 +84,26 @@ router.get('/games', async (req, res) => {
                 price: game.final_price ? `$${(game.final_price / 100).toFixed(2)}` : '$14.99',
                 thumbnail: game.large_capsule_image || game.header_image
             }));
+            setCached('games', formattedGames);
             return res.json({ success: true, data: formattedGames });
         }
         res.status(404).json({ success: false, message: 'No games found' });
     } catch (error) {
+        if (stale) return res.json({ success: true, data: stale, stale: true });
         res.status(500).json({ success: false, message: 'Steam API error' });
     }
 });
 
 // ─── Full game details by Steam App ID ────────────────────────────────────────
+// Passes through Steam's raw appdetails response untouched: the frontend
+// (SteamGamePage.jsx) already parses the raw `{ [appId]: { success, data } }`
+// shape, so flattening/renaming fields here only produced data the frontend
+// couldn't read, silently forcing every game page onto its fallback content.
 router.get('/app/:appId', async (req, res) => {
     const { appId } = req.params;
+    const { fresh, stale } = getCached(`app:${appId}`);
+    if (fresh) return res.json({ success: true, data: fresh });
+
     try {
         const steamRes = await axios.get(
             `https://store.steampowered.com/api/appdetails?appids=${appId}&cc=us&l=en`,
@@ -62,58 +113,27 @@ router.get('/app/:appId', async (req, res) => {
         if (!appData || !appData.success) {
             return res.status(404).json({ success: false, message: 'Game not found on Steam' });
         }
-        const d = appData.data;
 
-        // Pick best available logo image (library_600x900 > header > capsule)
-        const logoUrl =
-            `https://cdn.cloudflare.steamstatic.com/steam/apps/${appId}/library_600x900.jpg`;
-
-        const data = {
-            appId,
-            title: d.name,
-            developers: d.developers || [],
-            publishers: d.publishers || [],
-            genre: (d.genres || []).map(g => g.description),
-            categories: (d.categories || []).map(c => c.description),
-            description: d.detailed_description || d.about_the_game || d.short_description || '',
-            shortDescription: d.short_description || '',
-            thumbnail: d.header_image || '',
-            logoUrl,
-            backgroundImage: d.background_raw || d.background || '',
-            screenshots: (d.screenshots || []).map(s => s.path_full),
-            trailerUrl: d.movies && d.movies.length > 0
-                ? (d.movies[0].mp4?.max || d.movies[0].mp4?.['480'] || '')
-                : '',
-            trailerThumbnail: d.movies && d.movies.length > 0 ? d.movies[0].thumbnail : '',
-            isFree: d.is_free || false,
-            price: d.price_overview ? d.price_overview.final / 100 : null,
-            originalPrice: d.price_overview ? d.price_overview.initial / 100 : null,
-            discountPercent: d.price_overview ? d.price_overview.discount_percent : 0,
-            metacritic: d.metacritic || null,
-            releaseDateText: d.release_date ? d.release_date.date : '',
-            comingSoon: d.release_date ? d.release_date.coming_soon : false,
-            totalAchievements: d.achievements ? d.achievements.total : 0,
-            platform: [
-                d.platforms?.windows && 'Windows',
-                d.platforms?.mac && 'Mac',
-                d.platforms?.linux && 'Linux',
-            ].filter(Boolean),
-            supportedLanguages: d.supported_languages || '',
-            website: d.website || '',
-            requiredAge: d.required_age || 0,
-        };
-
-        return res.json({ success: true, data });
+        setCached(`app:${appId}`, steamRes.data);
+        return res.json({ success: true, data: steamRes.data });
     } catch (error) {
         console.error('Steam app detail error:', error.message);
+        if (stale) return res.json({ success: true, data: stale, stale: true });
         return res.status(500).json({ success: false, message: 'Failed to fetch game from Steam' });
     }
 });
 
 // ─── Steam community reviews ──────────────────────────────────────────────────
+// Passes through Steam's raw appreviews response (query_summary, reviews,
+// cursor) for the same reason as /app/:appId above: the frontend already
+// reads the raw field names directly.
 router.get('/app/:appId/reviews', async (req, res) => {
     const { appId } = req.params;
     const { cursor } = req.query;
+    const cacheKey = `reviews:${appId}:${cursor || ''}`;
+    const { fresh, stale } = getCached(cacheKey);
+    if (fresh) return res.json({ success: true, data: fresh });
+
     try {
         const params = {
             json: 1,
@@ -130,31 +150,25 @@ router.get('/app/:appId/reviews', async (req, res) => {
             { params, timeout: 10000 }
         );
 
-        const raw = reviewRes.data;
-        const reviews = (raw.reviews || []).map(r => ({
-            id: r.recommendationid,
-            voted_up: r.voted_up,
-            body: r.review,
-            playtimeHours: Math.round((r.author?.playtime_forever || 0) / 60),
-            votes_helpful: r.votes_helpful || 0,
-            timestamp: r.timestamp_created,
-        }));
-
-        const summary = raw.query_summary || null;
-
-        return res.json({ success: true, reviews, summary, cursor: raw.cursor });
+        setCached(cacheKey, reviewRes.data);
+        return res.json({ success: true, data: reviewRes.data });
     } catch (error) {
         console.error('Steam reviews error:', error.message);
+        if (stale) return res.json({ success: true, data: stale, stale: true });
         return res.status(500).json({ success: false, message: 'Failed to fetch reviews' });
     }
 });
 
 // ─── Live concurrent player count ────────────────────────────────────────────
+// Unlike the routes above, this hits Steam's official Web API, which does
+// accept a registered key for a real (documented) rate-limit allowance —
+// not cached, since a player count is only useful live.
 router.get('/app/:appId/players', async (req, res) => {
     const { appId } = req.params;
     try {
+        const keyParam = process.env.STEAM_API_KEY ? `&key=${process.env.STEAM_API_KEY}` : '';
         const playerRes = await axios.get(
-            `https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid=${appId}`,
+            `https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid=${appId}${keyParam}`,
             { timeout: 8000 }
         );
         const count = playerRes.data?.response?.player_count ?? 0;

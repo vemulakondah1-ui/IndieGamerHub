@@ -43,6 +43,8 @@ const reviewSchema = new mongoose.Schema(
 
 // One review per user per game
 reviewSchema.index({ user: 1, game: 1 }, { unique: true });
+// Separate index: getReviews queries by game alone, and the compound index above can't serve that (game isn't its prefix)
+reviewSchema.index({ game: 1 });
 
 // Static method to recalculate avgRating
 reviewSchema.statics.recalcAvgRating = async function (gameId) {
@@ -69,13 +71,18 @@ reviewSchema.statics.recalcAvgRating = async function (gameId) {
 };
 
 // Recalculate after save
+// `return` matters: these hooks only declare the doc param (no `next`), so
+// Mongoose treats a returned value as a promise to await before resolving
+// save()/findOneAndDelete(). Without it, recalcAvgRating ran fire-and-forget
+// and callers could read stale avgRating/reviewCount right after awaiting a
+// review save/delete.
 reviewSchema.post('save', function () {
-  this.constructor.recalcAvgRating(this.game);
+  return this.constructor.recalcAvgRating(this.game);
 });
 
 // Recalculate after delete
 reviewSchema.post('findOneAndDelete', function (doc) {
-  if (doc) doc.constructor.recalcAvgRating(doc.game);
+  if (doc) return doc.constructor.recalcAvgRating(doc.game);
 });
 
 module.exports = mongoose.model('Review', reviewSchema);

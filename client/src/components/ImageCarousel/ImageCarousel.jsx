@@ -30,7 +30,19 @@ export default function ImageCarousel({ images = [], title = '' }) {
   const CarouselContent = ({ fullscreen }) => (
     <div className={`carousel ${fullscreen ? 'carousel--fullscreen' : ''}`}>
       {/* Main image */}
-      <div className="carousel__main" onClick={() => !fullscreen && setIsFullscreen(true)}>
+      <div
+        className="carousel__main"
+        onClick={() => !fullscreen && setIsFullscreen(true)}
+        role={fullscreen ? undefined : 'button'}
+        tabIndex={fullscreen ? undefined : 0}
+        aria-label={fullscreen ? undefined : 'Expand screenshot'}
+        onKeyDown={(e) => {
+          if (!fullscreen && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault();
+            setIsFullscreen(true);
+          }
+        }}
+      >
         <img
           src={images[current]}
           alt={`${title} screenshot ${current + 1}`}

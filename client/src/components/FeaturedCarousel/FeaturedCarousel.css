@@ -60,10 +60,7 @@
   font-size: clamp(1.6rem, 4vw, 2.5rem);
   font-weight: 900;
   line-height: 1.15;
-  background: var(--gradient-primary);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--text-primary);
 }
 
 .fc__desc {
@@ -148,14 +145,16 @@
 .fc__indicator {
   width: 8px;
   height: 8px;
-  border-radius: 50%;
+  padding: calc((var(--tap-target-min) - 8px) / 2);
   background: rgba(255,255,255,0.3);
+  background-clip: content-box; /* keeps the visible dot at 8px while padding fills the tap target */
   border: none;
+  border-radius: 50%;
   cursor: pointer;
   transition: all var(--transition-fast);
 }
 .fc__indicator.active {
-  background: var(--accent-primary);
+  background-color: var(--accent-primary);
   width: 28px;
   border-radius: var(--radius-full);
 }

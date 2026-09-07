@@ -30,6 +30,8 @@ export default function FeaturedCarousel({ games = [] }) {
       className="featured-carousel"
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
+      onFocus={() => setPaused(true)}
+      onBlur={() => setPaused(false)}
     >
       {/* Background */}
       <div className="fc__bg">

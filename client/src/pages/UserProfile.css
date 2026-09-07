@@ -246,10 +246,7 @@
 .up-mini-stat-val {
   font-size: 1.4rem;
   font-weight: 900;
-  background: linear-gradient(135deg, #a78bfa, #06b6d4);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: #a78bfa;
   margin-bottom: 4px;
   line-height: 1;
 }
@@ -299,7 +296,7 @@
 .up-form-textarea:focus {
   outline: none;
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px rgba(124,58,237,0.15);
+  box-shadow: 0 0 0 3px var(--accent-primary-light);
 }
 .up-form-textarea {
   resize: vertical;
