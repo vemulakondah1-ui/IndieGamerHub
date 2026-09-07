@@ -49,7 +49,16 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Rate limiting: generous default for reads, tight on auth to blunt brute-force login attempts. auth is skipped here to avoid double-limiting, and health is skipped so Docker's healthcheck traffic doesn't eat into real users' quota.
 // `|| default` would silently ignore an explicit RATE_LIMIT_MAX_REQUESTS=0 (a legitimate incident lockdown); this only falls back when the var is genuinely unset.
-const envInt = (name, fallback) => process.env[name] !== undefined ? Number(process.env[name]) : fallback;
+// A typo'd value (e.g. "abc") would parse to NaN, and express-rate-limit's `totalHits > NaN` is always false — that silently disables the limiter, so NaN falls back to `fallback` too, with a loud warning instead of a silent misconfiguration.
+const envInt = (name, fallback) => {
+  if (process.env[name] === undefined) return fallback;
+  const parsed = Number(process.env[name]);
+  if (Number.isNaN(parsed)) {
+    logger.warn(`${name}="${process.env[name]}" is not a number, falling back to ${fallback}`);
+    return fallback;
+  }
+  return parsed;
+};
 const RATE_LIMIT_WINDOW_MS = envInt('RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000);
 app.use('/api', rateLimit({
   windowMs: RATE_LIMIT_WINDOW_MS,

@@ -1,5 +1,6 @@
 const router = require('express').Router();
 const axios = require('axios');
+const sanitizeHtml = require('../utils/sanitizeHtml');
 
 // Steam's storefront endpoints are unauthenticated and undocumented, with no
 // key-based way to raise their rate limit — caching is what keeps this app's
@@ -114,6 +115,14 @@ router.get('/app/:appId', async (req, res) => {
             return res.status(404).json({ success: false, message: 'Game not found on Steam' });
         }
 
+        // Steam's description fields are raw HTML; sanitize before caching so
+        // nothing downstream renders unsanitized Steam markup by accident.
+        if (appData.data) {
+            ['about_the_game', 'detailed_description', 'short_description'].forEach((field) => {
+                if (appData.data[field]) appData.data[field] = sanitizeHtml(appData.data[field]);
+            });
+        }
+
         setCached(`app:${appId}`, steamRes.data);
         return res.json({ success: true, data: steamRes.data });
     } catch (error) {
@@ -149,6 +158,20 @@ router.get('/app/:appId/reviews', async (req, res) => {
             `https://store.steampowered.com/appreviews/${appId}`,
             { params, timeout: 10000 }
         );
+
+        // Steam can return HTTP 200 with a semantically-failed body (e.g. a
+        // throttled/delisted app), same as /app/:appId above — only cache and
+        // serve a genuinely successful payload, so a bad-but-200 response
+        // doesn't get cached as "fresh" for the full TTL.
+        if (!reviewRes.data || !reviewRes.data.success) {
+            if (stale) return res.json({ success: true, data: stale, stale: true });
+            return res.status(404).json({ success: false, message: 'Reviews not found on Steam' });
+        }
+
+        // Review bodies are raw HTML/user text; sanitize before caching.
+        (reviewRes.data.reviews || []).forEach((r) => {
+            if (r.review) r.review = sanitizeHtml(r.review);
+        });
 
         setCached(cacheKey, reviewRes.data);
         return res.json({ success: true, data: reviewRes.data });

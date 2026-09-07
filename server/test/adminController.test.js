@@ -1,21 +1,24 @@
 'use strict';
 
-// Only tests the self-action guards added this session (adminUpdateUserRole /
-// adminToggleUserStatus reject an admin acting on their own account). Both
-// guards throw before any DB call, so no live Mongo connection is needed here.
+// The self-action guard (admin can't act on their own account via a :id-keyed
+// route) used to be copy-pasted into adminUpdateUserRole and
+// adminToggleUserStatus individually. It's now shared middleware
+// (blockSelfAction) wired into both routes in routes/admin.js, so testing it
+// once here covers every route that uses it, current and future.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { adminUpdateUserRole, adminToggleUserStatus } = require('../controllers/adminController');
+const blockSelfAction = require('../middleware/blockSelfAction');
 
-function makeReq({ selfId, targetId, body = {} }) {
-  return { user: { _id: selfId }, params: { id: targetId }, body };
+function makeReq({ selfId, targetId }) {
+  return { user: { _id: selfId }, params: { id: targetId } };
 }
 
-test('adminUpdateUserRole: rejects an admin changing their own role', async () => {
-  const req = makeReq({ selfId: 'admin-1', targetId: 'admin-1', body: { role: 'gamer' } });
-  await assert.rejects(
-    () => adminUpdateUserRole(req, {}),
+test('blockSelfAction: rejects when the acting admin targets their own id', () => {
+  const guard = blockSelfAction('You cannot change your own role');
+  const req = makeReq({ selfId: 'admin-1', targetId: 'admin-1' });
+  assert.throws(
+    () => guard(req, {}, () => {}),
     (err) => {
       assert.equal(err.statusCode, 400);
       assert.equal(err.message, 'You cannot change your own role');
@@ -24,14 +27,10 @@ test('adminUpdateUserRole: rejects an admin changing their own role', async () =
   );
 });
 
-test('adminToggleUserStatus: rejects an admin deactivating their own account', async () => {
-  const req = makeReq({ selfId: 'admin-1', targetId: 'admin-1' });
-  await assert.rejects(
-    () => adminToggleUserStatus(req, {}),
-    (err) => {
-      assert.equal(err.statusCode, 400);
-      assert.equal(err.message, 'You cannot deactivate your own account');
-      return true;
-    }
-  );
+test('blockSelfAction: calls next() and does not throw when targeting a different id', () => {
+  const guard = blockSelfAction('You cannot deactivate your own account');
+  const req = makeReq({ selfId: 'admin-1', targetId: 'user-2' });
+  let nextCalled = false;
+  assert.doesNotThrow(() => guard(req, {}, () => { nextCalled = true; }));
+  assert.equal(nextCalled, true);
 });

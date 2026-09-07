@@ -118,7 +118,16 @@ gameSchema.index({ title: 'text', description: 'text', tags: 'text' });
 gameSchema.index({ createdAt: -1 });
 gameSchema.index({ avgRating: -1 });
 gameSchema.index({ releaseDate: 1 });
-// Not unique: steamAppId defaults to '' for non-Steam games, so many docs share it. ponytail: race on concurrent upserts of the same id, fix with a partial unique index if that admin action ever gets concurrent traffic.
-gameSchema.index({ steamAppId: 1 });
+// Partial unique index: steamAppId defaults to '' for non-Steam games (many
+// docs legitimately share that default, excluded via partialFilterExpression),
+// but any real Steam App ID must be unique. This is what makes the
+// admin feature-steam-game upsert (findOneAndUpdate({steamAppId}, ..., {upsert:true}))
+// race-safe — two concurrent upserts for the same appId can no longer both
+// insert; the loser gets a duplicate-key error instead of silently forking
+// the game into two documents.
+gameSchema.index(
+  { steamAppId: 1 },
+  { unique: true, partialFilterExpression: { steamAppId: { $gt: '' } } }
+);
 
 module.exports = mongoose.model('Game', gameSchema);

@@ -98,13 +98,6 @@ const adminUpdateUserRole = async (req, res) => {
     throw error;
   }
 
-  // Prevents an admin from accidentally demoting/self-locking-out of the panel via this one-click UI; see UNFORGET.md.
-  if (req.user._id.toString() === req.params.id) {
-    const error = new Error('You cannot change your own role');
-    error.statusCode = 400;
-    throw error;
-  }
-
   const user = await User.findByIdAndUpdate(
     req.params.id,
     { role },
@@ -124,13 +117,6 @@ const adminUpdateUserRole = async (req, res) => {
 // @route   PUT /api/admin/users/:id/status
 // @access  Admin
 const adminToggleUserStatus = async (req, res) => {
-  // Same self-lockout guard as adminUpdateUserRole above.
-  if (req.user._id.toString() === req.params.id) {
-    const error = new Error('You cannot deactivate your own account');
-    error.statusCode = 400;
-    throw error;
-  }
-
   const user = await User.findByIdAndUpdate(
     req.params.id,
     [{ $set: { isActive: { $not: '$isActive' } } }],
