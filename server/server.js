@@ -23,15 +23,16 @@ app.set('trust proxy', 1);
 
 connectDB();
 
-// styleSrc allows 'unsafe-inline' because the client renders via inline style={{}} objects throughout, not a CSS-in-JS nonce setup; scriptSrc stays locked to 'self' since nothing here needs inline scripts.
+// styleSrc allows 'unsafe-inline' because the client renders via inline style={{}} objects throughout, not a CSS-in-JS nonce setup; scriptSrc stays locked to 'self' since nothing here needs inline scripts. googleapis/gstatic are the Google Fonts CDN the client actually loads; connectSrc is 'self' only since every external API call (Steam/RAWG/Cloudinary) is proxied server-side, the browser never calls them directly.
 app.use(helmet({
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+      fontSrc: ["'self'", 'https://fonts.gstatic.com'],
       scriptSrc: ["'self'"],
       imgSrc: ["'self'", 'data:', 'https:', 'blob:'],
-      connectSrc: ["'self'", 'https:'],
+      connectSrc: ["'self'"],
     },
   },
   hsts: { maxAge: 31536000, includeSubDomains: true, preload: true },

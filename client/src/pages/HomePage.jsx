@@ -1,7 +1,7 @@
 // src/pages/HomePage.jsx
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import { publicApi } from '../services/api';
 import { onImageError } from '../utils/imageFallback';
 
 const DEFAULT_FEATURED = [
@@ -15,7 +15,7 @@ export default function HomePage() {
   const [featuredGames, setFeaturedGames] = useState([]);
 
   useEffect(() => {
-    axios.get('http://localhost:5000/api/games/featured')
+    publicApi.get('/games/featured')
       .then(res => {
         const fetched = res.data?.data || res.data?.games || [];
         setFeaturedGames(fetched.length > 0 ? fetched : DEFAULT_FEATURED);

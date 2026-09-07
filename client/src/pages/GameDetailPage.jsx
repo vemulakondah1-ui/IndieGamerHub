@@ -1,7 +1,7 @@
 // src/pages/GameDetailPage.jsx
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { publicApi } from '../services/api';
 import './GameDetailPage.css';
 
 export default function GameDetailPage() {
@@ -173,7 +173,7 @@ export default function GameDetailPage() {
       }
 
       try {
-        const res = await axios.get(`http://localhost:5000/api/games/${id}`);
+        const res = await publicApi.get(`/games/${id}`);
         if (res.data && res.data.success) {
           setGame(res.data.data);
         } else {

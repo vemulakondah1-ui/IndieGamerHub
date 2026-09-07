@@ -1,7 +1,7 @@
 // src/pages/GamesPage.jsx
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import axios from 'axios';
+import { publicApi } from '../services/api';
 import { onImageError } from '../utils/imageFallback';
 
 // Hoisted to module scope so this 140+ item catalog is built once, not on every render/keystroke.
@@ -153,7 +153,7 @@ export default function GamesPage() {
   useEffect(() => {
     const fetchCatalog = async () => {
       try {
-        const res = await axios.get('http://localhost:5000/api/steam/games');
+        const res = await publicApi.get('/steam/games');
         const liveData = res.data.data || res.data.games || res.data;
         const combined = [...(Array.isArray(liveData) ? liveData : []), ...COMPREHENSIVE_CATALOG];
         setGames(combined);
