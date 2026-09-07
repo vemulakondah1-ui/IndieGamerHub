@@ -206,7 +206,7 @@ export default function DeveloperDashboard() {
       trailerUrl: game.trailerUrl || '',
       storeLinks: game.storeLinks || emptyForm.storeLinks,
       steamAppId: game.steamAppId || '',
-      price: game.price || '',
+      price: game.price ?? '', // price defaults to 0 in the schema (a real, valid price), so || would blank the field for a $0 game that isn't flagged isFree
       isFree: game.isFree || false,
       platform: game.platform || ['Windows'],
     });
