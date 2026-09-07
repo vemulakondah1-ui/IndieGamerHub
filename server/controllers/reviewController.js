@@ -121,9 +121,9 @@ const deleteReview = async (req, res) => {
     throw error;
   }
 
+  // Recalculation is handled by the model's post('deleteOne', {document:true})
+  // hook, which fires for this exact instance-level deleteOne() call.
   await review.deleteOne();
-  // Recalculation triggered by post('findOneAndDelete') hook after deleteOne
-  await Review.recalcAvgRating(review.game);
 
   res.json({ success: true, message: 'Review deleted' });
 };

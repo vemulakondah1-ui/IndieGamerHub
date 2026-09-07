@@ -8,14 +8,18 @@ const assert = require('node:assert/strict');
 const Game = require('../models/Game');
 const Review = require('../models/Review');
 
-test('Game schema indexes a non-unique steamAppId', () => {
+test('Game schema indexes steamAppId as unique, except for the shared "" default', () => {
   const indexes = Game.schema.indexes();
   const steamIndex = indexes.find(([key]) => Object.keys(key).length === 1 && key.steamAppId === 1);
 
   assert.ok(steamIndex, 'expected an index on { steamAppId: 1 }');
   const [key, options] = steamIndex;
   assert.deepEqual(key, { steamAppId: 1 });
-  assert.notEqual(options.unique, true);
+  assert.equal(options.unique, true);
+  // Non-Steam games all default steamAppId to '' and must stay excluded from
+  // the uniqueness constraint, or every second non-Steam game creation would
+  // fail with a duplicate-key error.
+  assert.deepEqual(options.partialFilterExpression, { steamAppId: { $gt: '' } });
 });
 
 test('Review schema indexes { game: 1 } separately from the unique compound index', () => {

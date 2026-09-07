@@ -62,6 +62,30 @@ test('GET /api/steam/app/:appId passes through Steam\'s raw response untouched',
   assert.deepEqual(await res.json(), { success: true, data: steamRaw });
 });
 
+test('GET /api/steam/app/:appId sanitizes description fields before caching', async () => {
+  axiosGetImpl = async () => ({
+    data: {
+      '105': {
+        success: true,
+        data: {
+          name: 'Sanitize Test',
+          about_the_game: '<img src=x onerror=alert(1)>About',
+          detailed_description: '<script>alert(1)</script>Detailed',
+          short_description: '<b>Short</b>',
+        },
+      },
+    },
+  });
+
+  const res = await fetch(`${baseUrl}/api/steam/app/105`);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  // DOMPurify strips the dangerous onerror attribute but keeps the harmless <img> tag itself.
+  assert.equal(body.data['105'].data.about_the_game, '<img src="x">About');
+  assert.equal(body.data['105'].data.detailed_description, 'Detailed');
+  assert.equal(body.data['105'].data.short_description, '<b>Short</b>');
+});
+
 test('GET /api/steam/app/:appId rejects a non-numeric appId before ever calling Steam', async () => {
   let called = false;
   axiosGetImpl = async () => { called = true; return { data: {} }; };
@@ -134,6 +158,38 @@ test('GET /api/steam/app/:appId/reviews passes through Steam\'s raw review respo
   const res = await fetch(`${baseUrl}/api/steam/app/200/reviews`);
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { success: true, data: reviewsRaw });
+});
+
+test('GET /api/steam/app/:appId/reviews 404s and does not cache when Steam reports success:false', async () => {
+  let calls = 0;
+  axiosGetImpl = async () => {
+    calls += 1;
+    return { data: { success: false } };
+  };
+
+  const first = await fetch(`${baseUrl}/api/steam/app/210/reviews`);
+  assert.equal(first.status, 404);
+
+  const second = await fetch(`${baseUrl}/api/steam/app/210/reviews`);
+  assert.equal(second.status, 404);
+  assert.equal(calls, 2, 'expected the failed lookup to never be cached as fresh');
+});
+
+test('GET /api/steam/app/:appId/reviews sanitizes review text before caching', async () => {
+  axiosGetImpl = async () => ({
+    data: {
+      success: true,
+      query_summary: {},
+      reviews: [{ recommendationid: 'r1', voted_up: true, review: '<img src=x onerror=alert(1)>hi' }],
+      cursor: null,
+    },
+  });
+
+  const res = await fetch(`${baseUrl}/api/steam/app/211/reviews`);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  // DOMPurify strips the dangerous onerror attribute but keeps the harmless <img> tag itself.
+  assert.equal(body.data.reviews[0].review, '<img src="x">hi');
 });
 
 test('GET /api/steam/app/:appId/reviews serves the fresh cache on a second request without calling Steam again', async () => {

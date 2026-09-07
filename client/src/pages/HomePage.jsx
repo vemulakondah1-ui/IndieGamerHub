@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { publicApi } from '../services/api';
 import { onImageError } from '../utils/imageFallback';
+import { normalizeGame } from '../utils/normalizeGame';
 
 const DEFAULT_FEATURED = [
   { _id: '2358720', title: 'Black Myth: Wukong', platform: 'Steam', developer: 'Game Science', price: '$59.99', thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/2358720/header.jpg' },
@@ -68,19 +69,17 @@ export default function HomePage() {
           </h2>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '20px' }}>
             {featuredGames.map((game) => {
-              const id = game.steamAppId || game._id; // steamAppId defaults to '' (never "0"), so || is correct here — unlike numeric fields, ?? would keep the empty string and break routing
-              const isSteamId = /^\d+$/.test(String(id));
-              const path = isSteamId ? `/steam/${id}` : `/games/${id}`;
+              const norm = normalizeGame(game);
               return (
-                <Link key={game._id} to={path} className="card" style={{ display: 'block', color: 'inherit' }}>
+                <Link key={norm.id} to={norm.path} className="card" style={{ display: 'block', color: 'inherit' }}>
                   <div style={{ height: '140px', background: '#000' }}>
-                    <img src={game.thumbnail || ''} alt={game.title || 'Game'} loading="lazy" onError={onImageError(260, 140)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={norm.thumbnail} alt={norm.title} loading="lazy" onError={onImageError(260, 140)} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   </div>
                   <div style={{ padding: '16px' }}>
-                    <span style={{ fontSize: '0.7rem', color: '#a78bfa', fontWeight: 700, textTransform: 'uppercase' }}>{game.platform || 'Steam'}</span>
-                    <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: '4px 0 8px 0' }}>{game.title || 'Untitled Game'}</h3>
+                    <span style={{ fontSize: '0.7rem', color: '#a78bfa', fontWeight: 700, textTransform: 'uppercase' }}>{norm.platform}</span>
+                    <h3 style={{ fontSize: '1.05rem', fontWeight: 800, margin: '4px 0 8px 0' }}>{norm.title}</h3>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: 800, color: '#10b981' }}>{typeof game.price === 'number' ? `$${game.price.toFixed(2)}` : game.price}</span>
+                      <span style={{ fontWeight: 800, color: '#10b981' }}>{norm.price}</span>
                       <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>View Details →</span>
                     </div>
                   </div>

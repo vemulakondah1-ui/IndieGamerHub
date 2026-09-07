@@ -1,7 +1,8 @@
 // client/src/pages/SteamGamePage.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import DOMPurify from 'dompurify';
+import ReactPlayer from 'react-player';
 import { steamService } from '../services';
 import './SteamGamePage.css';
 
@@ -84,7 +85,10 @@ export default function SteamGamePage() {
       let mediaItems = [];
       if (liveData.movies?.length > 0) {
         liveData.movies.forEach(m => {
-          const url = m.webm?.max || m.mp4?.max || m.webm?.['480'];
+          // Steam's current appdetails response only ships adaptive-streaming
+          // manifests (hls_h264/dash_h264), not the legacy direct webm/mp4
+          // files — react-player plays either directly, so both are tried.
+          const url = m.webm?.max || m.mp4?.max || m.webm?.['480'] || m.hls_h264 || m.dash_h264;
           if (url) mediaItems.push({ type: 'video', url, thumb: m.thumbnail || headerImage });
         });
       }
@@ -132,6 +136,8 @@ export default function SteamGamePage() {
     fetchDetails();
   }, [appId]);
 
+  const sanitizedAbout = useMemo(() => sanitizeStoreHtml(game?.about), [game?.about]);
+
   if (loading || !game) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a78bfa', fontSize: '1.25rem', fontWeight: 800 }}>
@@ -175,7 +181,16 @@ export default function SteamGamePage() {
           <div>
             <div style={{ width: '100%', height: '440px', backgroundColor: '#000', borderRadius: '16px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {currentMedia?.type === 'video' ? (
-                <video src={currentMedia.url} controls autoPlay muted loop style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                <ReactPlayer
+                  src={currentMedia.url}
+                  controls
+                  playing
+                  muted
+                  loop
+                  width="100%"
+                  height="100%"
+                  style={{ objectFit: 'contain' }}
+                />
               ) : (
                 <img src={currentMedia?.url} alt="Screenshot" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               )}
@@ -210,7 +225,7 @@ export default function SteamGamePage() {
               <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 16px 0' }}>About This Game</h2>
               <div
                 style={{ lineHeight: '1.7', color: '#cbd5e1', fontSize: '0.95rem' }}
-                dangerouslySetInnerHTML={{ __html: sanitizeStoreHtml(game.about) }}
+                dangerouslySetInnerHTML={{ __html: sanitizedAbout }}
               />
             </div>
           </div>

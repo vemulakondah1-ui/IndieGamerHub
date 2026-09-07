@@ -8,6 +8,7 @@ vi.mock('../services', () => ({
   adminService: {
     getStats: vi.fn(),
     getGames: vi.fn(),
+    getFeaturedGames: vi.fn(),
     toggleFeatured: vi.fn(),
     togglePublished: vi.fn(),
     getUsers: vi.fn(),
@@ -40,6 +41,7 @@ describe('AdminPanel', () => {
 
     adminService.getStats.mockResolvedValue({ data: { data: { totalGames: 3, totalUsers: 7, totalReviews: 12 } } });
     adminService.getGames.mockResolvedValue({ data: { data: sampleGames } });
+    adminService.getFeaturedGames.mockResolvedValue({ data: { data: sampleGames.filter((g) => g.isFeatured) } });
     adminService.getUsers.mockResolvedValue({ data: { data: sampleUsers } });
   });
 
@@ -49,7 +51,7 @@ describe('AdminPanel', () => {
 
   it('loads overview stats and shows real totalGames of 0 instead of falling back to featuredGames.length (nullish, not falsy-zero, bug)', async () => {
     adminService.getStats.mockResolvedValue({ data: { data: { totalGames: 0, totalUsers: 5, totalReviews: 0 } } });
-    adminService.getGames.mockResolvedValue({
+    adminService.getFeaturedGames.mockResolvedValue({
       data: { data: [
         { _id: '1', title: 'Game A', thumbnail: 'a.jpg', price: 9.99, isFeatured: true },
         { _id: '2', title: 'Game B', thumbnail: 'b.jpg', price: 19.99, isFeatured: true },
@@ -70,7 +72,7 @@ describe('AdminPanel', () => {
 
   it('falls back to featuredGames.length / 1 / 0 when stats fields are genuinely missing (nullish)', async () => {
     adminService.getStats.mockResolvedValue({ data: { data: {} } });
-    adminService.getGames.mockResolvedValue({ data: { data: [{ _id: '1', title: 'Only Featured', thumbnail: 'a.jpg', isFeatured: true }] } });
+    adminService.getFeaturedGames.mockResolvedValue({ data: { data: [{ _id: '1', title: 'Only Featured', thumbnail: 'a.jpg', isFeatured: true }] } });
 
     render(<AdminPanel />);
 
@@ -87,25 +89,28 @@ describe('AdminPanel', () => {
     expect(within(totalReviewsCard).getByText('0')).toBeInTheDocument(); // stats.totalReviews ?? 0
   });
 
-  it('derives the Featured Games count from games.filter(isFeatured), not a separately-fetched list', async () => {
+  // A16 regression test: a featured game outside the capped `games` (limit:50)
+  // fetch used to silently vanish from Overview because featuredGames was
+  // derived by filtering that capped list. It's now fetched independently
+  // from the uncapped /featured-games endpoint, so it can't be capped out.
+  it('derives the Featured Games count/list from the dedicated /featured-games endpoint, not by filtering the capped games list', async () => {
     adminService.getGames.mockResolvedValue({
-      data: { data: [
-        { _id: '1', title: 'Featured One', thumbnail: 'a.jpg', isFeatured: true },
-        { _id: '2', title: 'Not Featured', thumbnail: 'b.jpg', isFeatured: false },
-      ] },
+      data: { data: [{ _id: '2', title: 'Not Featured', thumbnail: 'b.jpg', isFeatured: false }] },
+    });
+    adminService.getFeaturedGames.mockResolvedValue({
+      data: { data: [{ _id: '99', title: 'Old Featured Game (outside capped games list)', thumbnail: 'a.jpg', isFeatured: true }] },
     });
 
     render(<AdminPanel />);
 
-    await waitFor(() => expect(screen.getByText('Featured One')).toBeInTheDocument());
-    expect(screen.queryByText('Not Featured')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText('Old Featured Game (outside capped games list)')).toBeInTheDocument());
 
     const featuredCard = screen.getByText('Featured Games').parentElement;
     expect(within(featuredCard).getByText('1')).toBeInTheDocument();
   });
 
-  it('handles unfeatured price defaulting to 0.00 and image onError swap, and removes a featured game without refetching or touching other games', async () => {
-    adminService.getGames.mockResolvedValue({
+  it('handles unfeatured price defaulting to 0.00 and image onError swap, and removes a featured game without refetching', async () => {
+    adminService.getFeaturedGames.mockResolvedValue({
       data: {
         data: [
           { _id: 'f1', title: 'No Price Game', thumbnail: 'x.jpg', isFeatured: true },
@@ -128,17 +133,16 @@ describe('AdminPanel', () => {
     await user.click(unfeatureButtons[0]);
 
     await waitFor(() => expect(adminService.toggleFeatured).toHaveBeenCalledWith('f1'));
-    // Overview derives featuredGames from `games`, so removing patches local
-    // state directly instead of re-fetching (no second loadData()) — and only
+    // Removing patches local state directly instead of re-fetching — and only
     // the removed game's isFeatured flips; the other game is untouched.
     expect(screen.queryByText('No Price Game')).not.toBeInTheDocument();
     expect(screen.getByText('Other Featured Game')).toBeInTheDocument();
     expect(adminService.getStats).toHaveBeenCalledTimes(1);
-    expect(adminService.getGames).toHaveBeenCalledTimes(1);
+    expect(adminService.getFeaturedGames).toHaveBeenCalledTimes(1);
   });
 
   it('logs an error (but does not crash) when removing a featured game fails', async () => {
-    adminService.getGames.mockResolvedValue({ data: { data: [{ _id: 'f1', title: 'Broken Remove', thumbnail: 'x.jpg', isFeatured: true }] } });
+    adminService.getFeaturedGames.mockResolvedValue({ data: { data: [{ _id: 'f1', title: 'Broken Remove', thumbnail: 'x.jpg', isFeatured: true }] } });
     adminService.toggleFeatured.mockRejectedValueOnce(new Error('network down'));
 
     render(<AdminPanel />);
@@ -153,14 +157,15 @@ describe('AdminPanel', () => {
   });
 
   it('shows an empty state when there are no featured games', async () => {
-    adminService.getGames.mockResolvedValue({ data: { data: [{ _id: 'g2', title: 'Celeste', isFeatured: false, isPublished: false, thumbnail: '' }] } });
+    adminService.getFeaturedGames.mockResolvedValue({ data: { data: [] } });
     render(<AdminPanel />);
     await waitFor(() => expect(screen.getByText(/no games are currently featured/i)).toBeInTheDocument());
   });
 
-  it('tolerates getStats/getGames individually rejecting (their own .catch(() => null))', async () => {
+  it('tolerates getStats/getGames/getFeaturedGames individually rejecting (their own .catch(() => null))', async () => {
     adminService.getStats.mockRejectedValue(new Error('stats down'));
     adminService.getGames.mockRejectedValue(new Error('games down'));
+    adminService.getFeaturedGames.mockRejectedValue(new Error('featured down'));
 
     render(<AdminPanel />);
 
@@ -342,15 +347,24 @@ describe('AdminPanel', () => {
       expect(await screen.findByText('No games found.')).toBeInTheDocument();
     });
 
-    it('toggles a game to featured, reflects the new state, and does not refetch (Overview derives from games directly)', async () => {
+    it('toggles a game to featured, reflects the new state, and refreshes the Overview featured list from /featured-games', async () => {
       adminService.toggleFeatured.mockResolvedValue({});
+      // First call is loadData()'s initial fetch (Hollow Knight only); second
+      // is the refreshFeatured() re-fetch triggered by the toggle.
+      adminService.getFeaturedGames
+        .mockResolvedValueOnce({ data: { data: [{ _id: 'g1', title: 'Hollow Knight', thumbnail: 'hk.jpg', isFeatured: true }] } })
+        .mockResolvedValueOnce({ data: { data: [
+          { _id: 'g1', title: 'Hollow Knight', thumbnail: 'hk.jpg', isFeatured: true },
+          { _id: 'g2', title: 'Celeste', thumbnail: '', isFeatured: true },
+        ] } });
+
       const user = await openGamesTab();
       await user.click(screen.getByRole('button', { name: '☆ Feature' })); // Celeste, currently not featured
       expect(adminService.toggleFeatured).toHaveBeenCalledWith('g2');
       const celesteRow = screen.getByText('Celeste').closest('tr');
       expect(await within(celesteRow).findByRole('button', { name: '⭐ Featured' })).toBeInTheDocument();
-      // No more loadData() re-fetch on toggle now that Overview reads from `games`.
       expect(adminService.getStats).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(adminService.getFeaturedGames).toHaveBeenCalledTimes(2));
 
       await user.click(screen.getByRole('button', { name: /overview/i }));
       // Hollow Knight was already featured in the fixture, so toggling Celeste makes 2.

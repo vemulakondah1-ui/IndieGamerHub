@@ -27,18 +27,24 @@ export default function AdminPanel() {
   // and forth doesn't re-hit the API every time (A2).
   const loadedTabs = useRef(new Set());
 
-  // Overview's featured cards are derived from `games` (single source of truth)
-  // instead of a separately-fetched list, so toggling featured never drifts (A3).
-  const featuredGames = games.filter((g) => g.isFeatured);
+  // Overview's featured cards come from the dedicated uncapped /featured-games
+  // endpoint, not by filtering `games` (which is capped to the 50 newest —
+  // an older featured game would otherwise silently vanish from this list).
+  const [featuredGames, setFeaturedGames] = useState([]);
+  const refreshFeatured = () =>
+    adminService.getFeaturedGames()
+      .then(({ data }) => setFeaturedGames(data.data || []))
+      .catch(() => {});
 
   const loadData = async () => {
     try {
       // Games is fetched here (not just in the [activeTab] effect) so the
       // Overview tab has real featured-game data even if the user never
       // visits the Games tab.
-      const [statsRes, gamesRes] = await Promise.all([
+      const [statsRes, gamesRes, featuredRes] = await Promise.all([
         adminService.getStats().catch(() => null),
         adminService.getGames({ limit: 50 }).catch(() => null),
+        adminService.getFeaturedGames().catch(() => null),
       ]);
 
       if (statsRes?.data?.data) {
@@ -47,6 +53,9 @@ export default function AdminPanel() {
       if (gamesRes?.data?.data) {
         setGames(gamesRes.data.data);
         loadedTabs.current.add('games');
+      }
+      if (featuredRes?.data?.data) {
+        setFeaturedGames(featuredRes.data.data);
       }
     } catch (err) {
       console.error(err);
@@ -104,6 +113,7 @@ export default function AdminPanel() {
   const handleRemoveFeatured = async (id) => {
     try {
       await adminService.toggleFeatured(id);
+      setFeaturedGames((prev) => prev.filter((g) => g._id !== id));
       setGames((prev) => prev.map((g) => g._id === id ? { ...g, isFeatured: false } : g));
     } catch (err) {
       console.error(err);
@@ -121,11 +131,17 @@ export default function AdminPanel() {
     }
   };
 
-  const handleToggleFeatured = makeToggle(
+  // Also refreshes the separately-fetched featuredGames list (Overview tab)
+  // so toggling from the Games tab table doesn't need a full page reload to show up there.
+  const handleToggleFeaturedInGames = makeToggle(
     (id) => adminService.toggleFeatured(id),
     setGames,
     (g, current) => ({ ...g, isFeatured: !current })
   );
+  const handleToggleFeatured = async (id, current) => {
+    await handleToggleFeaturedInGames(id, current);
+    refreshFeatured();
+  };
 
   const handleTogglePublished = makeToggle(
     (id) => adminService.togglePublished(id),
