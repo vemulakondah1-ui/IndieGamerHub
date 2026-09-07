@@ -14,24 +14,6 @@
   }
 }
 
-.video-wrapper {
-  position: relative;
-  width: 100%;
-  padding-top: 56.25%;
-  /* 16:9 Aspect Ratio */
-  background: #000;
-  border-radius: 12px;
-  overflow: hidden;
-}
-
-.video-wrapper>div {
-  position: absolute !important;
-  top: 0;
-  left: 0;
-  width: 100% !important;
-  height: 100% !important;
-}
-
 /* Media player + sidebar; collapses so the 300px sidebar column can't force horizontal overflow on phones.
    Uses the shared .content-sidebar-grid from index.css; only the column widths/gap/breakpoint differ per page. */
 .steam-main-grid {
