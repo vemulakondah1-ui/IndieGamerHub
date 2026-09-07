@@ -1,7 +1,8 @@
 // client/src/pages/SteamGamePage.jsx
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import DOMPurify from 'dompurify';
+import ReactPlayer from 'react-player';
 import { steamService } from '../services';
 import './SteamGamePage.css';
 
@@ -20,10 +21,12 @@ export default function SteamGamePage() {
   const [reviewSummary, setReviewSummary] = useState(null);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     window.scrollTo(0, 0);
     setLoading(true);
+    setLoadError(false);
 
     const fetchDetails = async () => {
       let liveData = null;
@@ -40,22 +43,18 @@ export default function SteamGamePage() {
         liveData = raw[appId]?.data || raw.data || (raw.name ? raw : null);
         revData = reviewRes?.data?.data || reviewRes?.data || {};
       } catch (err) {
-        console.warn('Backend proxy lookup failed, attempting direct fetch...', err);
+        console.warn('Backend proxy lookup failed', err);
       }
 
-      // Fallback object to guarantee UI render if the backend proxy has no data (a direct browser fetch to Steam used to sit here, but Steam blocks that with CORS).
+      // No silent placeholder here anymore: a missing/failed response (most
+      // often Steam's public API being rate-limited, or our own general
+      // rate limiter — see server.js) used to render a fake "Game #<id>"
+      // page indistinguishable from a real one. Surface a real error state
+      // instead so a rate-limit blip doesn't look like missing game data.
       if (!liveData) {
-        liveData = {
-          name: `Game #${appId}`,
-          developers: ['Studio Partner'],
-          publishers: ['Steam / Epic'],
-          release_date: { date: 'Available Now' },
-          short_description: 'Store page metadata is loading or rate-limited by Steam.',
-          is_free: false,
-          price_overview: { final_formatted: '$59.99' },
-          header_image: `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${appId}/header.jpg`,
-          screenshots: []
-        };
+        setLoadError(true);
+        setLoading(false);
+        return;
       }
 
       // Extract details
@@ -84,7 +83,10 @@ export default function SteamGamePage() {
       let mediaItems = [];
       if (liveData.movies?.length > 0) {
         liveData.movies.forEach(m => {
-          const url = m.webm?.max || m.mp4?.max || m.webm?.['480'];
+          // Steam's current appdetails response only ships adaptive-streaming
+          // manifests (hls_h264/dash_h264), not the legacy direct webm/mp4
+          // files — react-player plays either directly, so both are tried.
+          const url = m.webm?.max || m.mp4?.max || m.webm?.['480'] || m.hls_h264 || m.dash_h264;
           if (url) mediaItems.push({ type: 'video', url, thumb: m.thumbnail || headerImage });
         });
       }
@@ -132,10 +134,32 @@ export default function SteamGamePage() {
     fetchDetails();
   }, [appId]);
 
-  if (loading || !game) {
+  const sanitizedAbout = useMemo(() => sanitizeStoreHtml(game?.about), [game?.about]);
+
+  if (loading) {
     return (
       <div style={{ minHeight: '100vh', backgroundColor: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#a78bfa', fontSize: '1.25rem', fontWeight: 800 }}>
         Loading Game Details...
+      </div>
+    );
+  }
+
+  if (loadError || !game) {
+    return (
+      <div className="steam-page" style={{ minHeight: '100vh', backgroundColor: 'var(--bg-primary)', color: '#fff', paddingBottom: '80px' }}>
+        <div className="container" style={{ maxWidth: '1280px', margin: '0 auto', padding: '40px 20px 20px' }}>
+          <button
+            onClick={() => navigate('/')}
+            style={{ background: 'transparent', border: 'none', color: '#a78bfa', cursor: 'pointer', fontWeight: 700, marginBottom: '20px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            ← Back to Games
+          </button>
+          <div style={{ textAlign: 'center', padding: '80px 20px', color: '#94a3b8' }}>
+            <p style={{ fontSize: '3rem', margin: '0 0 16px 0' }}>⚠️</p>
+            <h2 style={{ color: '#fff', fontSize: '1.5rem', fontWeight: 800, margin: '0 0 8px 0' }}>Couldn't load this game's Steam data</h2>
+            <p style={{ margin: 0 }}>This is usually temporary — Steam's public store API may be rate-limited right now. Please try again in a moment.</p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -175,7 +199,16 @@ export default function SteamGamePage() {
           <div>
             <div style={{ width: '100%', height: '440px', backgroundColor: '#000', borderRadius: '16px', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               {currentMedia?.type === 'video' ? (
-                <video src={currentMedia.url} controls autoPlay muted loop style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                <ReactPlayer
+                  src={currentMedia.url}
+                  controls
+                  playing
+                  muted
+                  loop
+                  width="100%"
+                  height="100%"
+                  style={{ objectFit: 'contain' }}
+                />
               ) : (
                 <img src={currentMedia?.url} alt="Screenshot" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               )}
@@ -210,7 +243,7 @@ export default function SteamGamePage() {
               <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 16px 0' }}>About This Game</h2>
               <div
                 style={{ lineHeight: '1.7', color: '#cbd5e1', fontSize: '0.95rem' }}
-                dangerouslySetInnerHTML={{ __html: sanitizeStoreHtml(game.about) }}
+                dangerouslySetInnerHTML={{ __html: sanitizedAbout }}
               />
             </div>
           </div>

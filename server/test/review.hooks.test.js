@@ -93,3 +93,19 @@ test('findOneAndDelete on a non-matching filter does not throw', async () => {
     Review.findOneAndDelete({ _id: new mongoose.Types.ObjectId() })
   );
 });
+
+// reviewController.deleteReview calls the document instance's .deleteOne(),
+// not Review.findOneAndDelete() — a separate Mongoose middleware event, only
+// covered by this test (see Review.js's post('deleteOne', {document:true}) hook).
+test('deleting a review via the document instance recalculates the average', async () => {
+  const game = await makeGame();
+  const toDelete = await makeReview(game, 4);
+  await makeReview(game, 2);
+
+  const fetched = await Review.findById(toDelete._id);
+  await fetched.deleteOne();
+
+  const updated = await Game.findById(game._id);
+  assert.equal(updated.avgRating, 2);
+  assert.equal(updated.reviewCount, 1);
+});

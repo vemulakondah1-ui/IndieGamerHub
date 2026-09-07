@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { publicApi } from '../services/api';
 import { onImageError } from '../utils/imageFallback';
+import { normalizeGame } from '../utils/normalizeGame';
 
 // Hoisted to module scope so this 140+ item catalog is built once, not on every render/keystroke.
 const COMPREHENSIVE_CATALOG = [
@@ -243,16 +244,7 @@ export default function GamesPage() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
             {filteredGames.map((game, index) => {
-              const gameId = game._id ?? game.id ?? `game-${index}`;
-              const title = game.title ?? game.name ?? 'Untitled Game';
-              const thumb = game.thumbnail || game.header_image || game.imageUrl || 'https://cdn.cloudflare.steamstatic.com/steam/apps/413150/header.jpg'; // these fields default to '' in the schema, not null/undefined, so || (not ??) is what falls through correctly
-              const desc = game.short_description || game.shortDescription || 'No description available';
-              const price = game.price_overview?.final_formatted ?? game.price ?? '$14.99';
-              const platformName = game.platform ?? 'Steam';
-
-              // Route numeric Steam App IDs to the full SteamGamePage; others go to generic detail
-              const isSteamId = /^\d+$/.test(String(gameId));
-              const detailPath = isSteamId ? `/steam/${gameId}` : `/games/${gameId}`;
+              const { path: detailPath, title, thumbnail: thumb, description: desc, price, platform: platformName, id: gameId } = normalizeGame(game, index);
 
               return (
                 <Link

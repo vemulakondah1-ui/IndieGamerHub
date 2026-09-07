@@ -80,9 +80,17 @@ reviewSchema.post('save', function () {
   return this.constructor.recalcAvgRating(this.game);
 });
 
-// Recalculate after delete
+// Recalculate after delete via a query (Model.findOneAndDelete/findByIdAndDelete)
 reviewSchema.post('findOneAndDelete', function (doc) {
   if (doc) return doc.constructor.recalcAvgRating(doc.game);
+});
+
+// Recalculate after delete via a document instance (doc.deleteOne()) — this is
+// the path reviewController.deleteReview actually uses. It's a *document*
+// middleware event, separate from the query middleware above, so both hooks
+// are needed to cover both ways a Review can be deleted.
+reviewSchema.post('deleteOne', { document: true, query: false }, function () {
+  return this.constructor.recalcAvgRating(this.game);
 });
 
 module.exports = mongoose.model('Review', reviewSchema);

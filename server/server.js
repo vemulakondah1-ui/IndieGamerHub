@@ -49,14 +49,23 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Rate limiting: generous default for reads, tight on auth to blunt brute-force login attempts. auth is skipped here to avoid double-limiting, and health is skipped so Docker's healthcheck traffic doesn't eat into real users' quota.
 // `|| default` would silently ignore an explicit RATE_LIMIT_MAX_REQUESTS=0 (a legitimate incident lockdown); this only falls back when the var is genuinely unset.
-const envInt = (name, fallback) => process.env[name] !== undefined ? Number(process.env[name]) : fallback;
+// A typo'd value (e.g. "abc") would parse to NaN, and express-rate-limit's `totalHits > NaN` is always false — that silently disables the limiter, so NaN falls back to `fallback` too, with a loud warning instead of a silent misconfiguration.
+const envInt = (name, fallback) => {
+  if (process.env[name] === undefined) return fallback;
+  const parsed = Number(process.env[name]);
+  if (Number.isNaN(parsed)) {
+    logger.warn(`${name}="${process.env[name]}" is not a number, falling back to ${fallback}`);
+    return fallback;
+  }
+  return parsed;
+};
 const RATE_LIMIT_WINDOW_MS = envInt('RATE_LIMIT_WINDOW_MS', 15 * 60 * 1000);
 app.use('/api', rateLimit({
   windowMs: RATE_LIMIT_WINDOW_MS,
   max: envInt('RATE_LIMIT_MAX_REQUESTS', 100),
   standardHeaders: true,
   legacyHeaders: false,
-  skip: (req) => req.path.startsWith('/auth') || req.path === '/health',
+  skip: (req) => req.path.startsWith('/auth') || req.path === '/health' || req.path.startsWith('/steam'),
 }));
 app.use('/api/auth', rateLimit({
   windowMs: RATE_LIMIT_WINDOW_MS,
@@ -64,6 +73,18 @@ app.use('/api/auth', rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { success: false, message: 'Too many attempts, please try again later' },
+}));
+// Steam proxy routes are public, read-only, and already cached server-side
+// (steam.js's own in-memory TTL cache) — cheap to serve, but naturally
+// chattier than typical API traffic since a single game page fires 2+
+// requests. Sharing the general 100/15min budget meant a normal browsing
+// session (~50 game pages) could exhaust it and start silently failing.
+app.use('/api/steam', rateLimit({
+  windowMs: RATE_LIMIT_WINDOW_MS,
+  max: envInt('STEAM_RATE_LIMIT_MAX_REQUESTS', 500),
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many Steam requests, please try again shortly' },
 }));
 
 app.use('/api/auth', authRoutes);

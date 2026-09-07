@@ -9,6 +9,7 @@ const {
 } = require('../controllers/adminController');
 const protect = require('../middleware/protect');
 const authorize = require('../middleware/authorize');
+const blockSelfAction = require('../middleware/blockSelfAction');
 
 // Protect all admin endpoints
 router.use(protect, authorize('admin'));
@@ -19,8 +20,8 @@ router.get('/games', adminGetGames);
 router.put('/games/:id/feature', adminToggleFeatured);
 router.put('/games/:id/publish', adminTogglePublished);
 router.get('/users', adminGetUsers);
-router.put('/users/:id/role', adminUpdateUserRole);
-router.put('/users/:id/status', adminToggleUserStatus);
+router.put('/users/:id/role', blockSelfAction('You cannot change your own role'), adminUpdateUserRole);
+router.put('/users/:id/status', blockSelfAction('You cannot deactivate your own account'), adminToggleUserStatus);
 
 // FEATURE STEAM GAME: Searches Steam, extracts data, and marks isFeatured: true
 router.post('/feature-steam-game', async (req, res) => {

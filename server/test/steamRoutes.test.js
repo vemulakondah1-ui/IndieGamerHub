@@ -10,8 +10,8 @@ process.env.PORT = '0';
 process.env.MONGO_URI = 'mongodb://stub-not-used';
 // The cache-eviction test below fires 500+ requests to exercise the FIFO
 // bound; raised only for this test file's own process so it doesn't clash
-// with the general limiter's production default of 100.
-process.env.RATE_LIMIT_MAX_REQUESTS = '600';
+// with /api/steam's own dedicated rate limiter (see server.js).
+process.env.STEAM_RATE_LIMIT_MAX_REQUESTS = '700';
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -48,6 +48,15 @@ beforeEach(() => {
   };
 });
 
+test('GET /api/steam/* carries its own rate-limit budget, not the general /api limiter\'s', async () => {
+  axiosGetImpl = async () => ({ data: { '104': { success: true, data: { name: 'Rate Limit Check' } } } });
+  const res = await fetch(`${baseUrl}/api/steam/app/104`);
+  assert.equal(res.status, 200);
+  // Set via STEAM_RATE_LIMIT_MAX_REQUESTS above, distinct from the general
+  // limiter's default of 100 — proves /api/steam isn't sharing that budget.
+  assert.equal(res.headers.get('ratelimit-limit'), '700');
+});
+
 test('GET /api/steam/app/:appId passes through Steam\'s raw response untouched', async () => {
   const steamRaw = {
     '100': {
@@ -60,6 +69,30 @@ test('GET /api/steam/app/:appId passes through Steam\'s raw response untouched',
   const res = await fetch(`${baseUrl}/api/steam/app/100`);
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { success: true, data: steamRaw });
+});
+
+test('GET /api/steam/app/:appId sanitizes description fields before caching', async () => {
+  axiosGetImpl = async () => ({
+    data: {
+      '105': {
+        success: true,
+        data: {
+          name: 'Sanitize Test',
+          about_the_game: '<img src=x onerror=alert(1)>About',
+          detailed_description: '<script>alert(1)</script>Detailed',
+          short_description: '<b>Short</b>',
+        },
+      },
+    },
+  });
+
+  const res = await fetch(`${baseUrl}/api/steam/app/105`);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  // DOMPurify strips the dangerous onerror attribute but keeps the harmless <img> tag itself.
+  assert.equal(body.data['105'].data.about_the_game, '<img src="x">About');
+  assert.equal(body.data['105'].data.detailed_description, 'Detailed');
+  assert.equal(body.data['105'].data.short_description, '<b>Short</b>');
 });
 
 test('GET /api/steam/app/:appId rejects a non-numeric appId before ever calling Steam', async () => {
@@ -134,6 +167,38 @@ test('GET /api/steam/app/:appId/reviews passes through Steam\'s raw review respo
   const res = await fetch(`${baseUrl}/api/steam/app/200/reviews`);
   assert.equal(res.status, 200);
   assert.deepEqual(await res.json(), { success: true, data: reviewsRaw });
+});
+
+test('GET /api/steam/app/:appId/reviews 404s and does not cache when Steam reports success:false', async () => {
+  let calls = 0;
+  axiosGetImpl = async () => {
+    calls += 1;
+    return { data: { success: false } };
+  };
+
+  const first = await fetch(`${baseUrl}/api/steam/app/210/reviews`);
+  assert.equal(first.status, 404);
+
+  const second = await fetch(`${baseUrl}/api/steam/app/210/reviews`);
+  assert.equal(second.status, 404);
+  assert.equal(calls, 2, 'expected the failed lookup to never be cached as fresh');
+});
+
+test('GET /api/steam/app/:appId/reviews sanitizes review text before caching', async () => {
+  axiosGetImpl = async () => ({
+    data: {
+      success: true,
+      query_summary: {},
+      reviews: [{ recommendationid: 'r1', voted_up: true, review: '<img src=x onerror=alert(1)>hi' }],
+      cursor: null,
+    },
+  });
+
+  const res = await fetch(`${baseUrl}/api/steam/app/211/reviews`);
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  // DOMPurify strips the dangerous onerror attribute but keeps the harmless <img> tag itself.
+  assert.equal(body.data.reviews[0].review, '<img src="x">hi');
 });
 
 test('GET /api/steam/app/:appId/reviews serves the fresh cache on a second request without calling Steam again', async () => {
