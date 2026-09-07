@@ -62,6 +62,16 @@ test('GET /api/steam/app/:appId passes through Steam\'s raw response untouched',
   assert.deepEqual(await res.json(), { success: true, data: steamRaw });
 });
 
+test('GET /api/steam/app/:appId rejects a non-numeric appId before ever calling Steam', async () => {
+  let called = false;
+  axiosGetImpl = async () => { called = true; return { data: {} }; };
+
+  const res = await fetch(`${baseUrl}/api/steam/app/1;rm -rf`);
+  assert.equal(res.status, 400);
+  assert.equal((await res.json()).success, false);
+  assert.equal(called, false, 'expected Steam to never be called for a malformed appId');
+});
+
 test('GET /api/steam/app/:appId 404s when Steam reports success:false', async () => {
   axiosGetImpl = async () => ({ data: { '101': { success: false } } });
 
@@ -359,10 +369,10 @@ test('the response cache evicts its oldest entry once it exceeds 500 distinct ke
   let calls = 0;
   axiosGetImpl = async () => {
     calls += 1;
-    return { data: { 'evict-probe': { success: true, data: { name: 'first' } } } };
+    return { data: { '900001': { success: true, data: { name: 'first' } } } };
   };
 
-  const first = await fetch(`${baseUrl}/api/steam/app/evict-probe`);
+  const first = await fetch(`${baseUrl}/api/steam/app/900001`);
   assert.equal(first.status, 200);
   assert.equal(calls, 1);
 
@@ -372,21 +382,21 @@ test('the response cache evicts its oldest entry once it exceeds 500 distinct ke
     return { data: { [id]: { success: true, data: { name: `filler-${id}` } } } };
   };
   // 520, not 500: earlier tests in this file already populated a handful of
-  // other cache keys, so evict-probe isn't necessarily the very oldest entry
+  // other cache keys, so 900001 isn't necessarily the very oldest entry
   // — this margin guarantees it's pushed out regardless of exactly how many.
   for (let i = 0; i < 520; i++) {
     // eslint-disable-next-line no-await-in-loop
-    await fetch(`${baseUrl}/api/steam/app/filler-${i}`);
+    await fetch(`${baseUrl}/api/steam/app/${1000000 + i}`);
   }
 
   const callsBeforeRefetch = calls;
   axiosGetImpl = async () => {
     calls += 1;
-    return { data: { 'evict-probe': { success: true, data: { name: 'refetched' } } } };
+    return { data: { '900001': { success: true, data: { name: 'refetched' } } } };
   };
-  const afterEviction = await fetch(`${baseUrl}/api/steam/app/evict-probe`);
+  const afterEviction = await fetch(`${baseUrl}/api/steam/app/900001`);
   assert.equal(afterEviction.status, 200);
-  assert.deepEqual((await afterEviction.json()).data, { 'evict-probe': { success: true, data: { name: 'refetched' } } });
+  assert.deepEqual((await afterEviction.json()).data, { '900001': { success: true, data: { name: 'refetched' } } });
   assert.equal(
     calls,
     callsBeforeRefetch + 1,

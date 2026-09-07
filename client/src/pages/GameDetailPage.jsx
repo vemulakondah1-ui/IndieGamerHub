@@ -245,6 +245,7 @@ export default function GameDetailPage() {
           <div>
             <section style={{ marginBottom: '40px' }}>
               <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '16px', borderBottom: '2px solid var(--border-color)', paddingBottom: '8px' }}>About the Game</h2>
+              {/* Plain text, not dangerouslySetInnerHTML: description is unsanitized API/developer-submitted content, same class of XSS risk fixed via DOMPurify in SteamGamePage.jsx */}
               <p style={{ lineHeight: '1.8', color: 'var(--text-secondary)', fontSize: '1.05rem' }}>{currentData.description}</p>
             </section>
 

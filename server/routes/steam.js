@@ -27,6 +27,14 @@ function setCached(key, data) {
     cache.set(key, { data, expiresAt: Date.now() + CACHE_TTL_MS });
 }
 
+// Validates once for every :appId route below, instead of repeating the check per-handler — a malformed appId gets a clean 400 instead of being interpolated straight into the outbound Steam URL.
+router.param('appId', (req, res, next, appId) => {
+    if (!/^\d+$/.test(appId)) {
+        return res.status(400).json({ success: false, message: 'appId must be numeric' });
+    }
+    next();
+});
+
 // Fetch live featured & top games directly from Steam's public store endpoint
 router.get('/homepage', async (req, res) => {
     const { fresh, stale } = getCached('homepage');
