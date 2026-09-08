@@ -1,0 +1,28 @@
+/* Add this to SteamGamePage.css */
+.steam-hero-flex {
+  display: flex;
+  gap: 32px;
+  align-items: center;
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+  margin-top: 24px;
+}
+
+@media (max-width: 768px) {
+  .steam-hero-flex {
+    flex-wrap: wrap;
+  }
+}
+
+/* Media player + sidebar; collapses so the 300px sidebar column can't force horizontal overflow on phones.
+   Uses the shared .content-sidebar-grid from index.css; only the column widths/gap/breakpoint differ per page. */
+.steam-main-grid {
+  --csg-main: minmax(0, 2fr);
+  --csg-sidebar: minmax(300px, 1fr);
+  --csg-gap: 32px;
+}
+@media (max-width: 900px) {
+  .steam-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
