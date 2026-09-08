@@ -10,6 +10,15 @@ const {
 const protect = require('../middleware/protect');
 const authorize = require('../middleware/authorize');
 const blockSelfAction = require('../middleware/blockSelfAction');
+// Public endpoint for featured games
+router.get('/featured-games', async (req, res) => {
+  try {
+    const featured = await Game.find({ isFeatured: true }).sort({ updatedAt: -1 });
+    res.json({ success: true, data: featured });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 // Protect all admin endpoints
 router.use(protect, authorize('admin'));
@@ -101,13 +110,4 @@ router.post('/feature-steam-game', async (req, res) => {
 });
 
 // GET list of currently featured games
-router.get('/featured-games', async (req, res) => {
-  try {
-    const featured = await Game.find({ isFeatured: true }).sort({ updatedAt: -1 });
-    res.json({ success: true, data: featured });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
 module.exports = router;

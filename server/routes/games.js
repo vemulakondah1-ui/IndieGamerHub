@@ -34,6 +34,15 @@ const getDevGamesHandler = async (req, res) => {
 
 router.get('/developer/:devId', getDevGamesHandler);
 router.get('/my-games', verifyToken, getDevGamesHandler);
+// GET /api/games/featured - Public endpoint for Homepage blockbusters
+router.get('/featured', async (req, res) => {
+  try {
+    const featured = await Game.find({ isFeatured: true }).sort({ updatedAt: -1 });
+    res.json({ success: true, data: featured });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
 
 // Top-tier famous benchmarks by genre (cross-referenced with Steam & Epic)
 const famousGenreVault = {
