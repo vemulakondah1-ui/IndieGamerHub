@@ -6,6 +6,10 @@ const connectDB = async () => {
   if (isConnected || mongoose.connection.readyState >= 1) {
     return;
   }
+  if (!process.env.MONGO_URI) {
+    console.warn('⚠️ MONGO_URI is not defined, skipping database connection.');
+    return;
+  }
   try {
     const conn = await mongoose.connect(process.env.MONGO_URI);
     isConnected = true;
