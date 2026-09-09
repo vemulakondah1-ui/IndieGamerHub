@@ -242,8 +242,8 @@ export default function DeveloperDashboard() {
         setSuccess('Game updated successfully!');
       } else {
         res = await gameService.createGame(fd);
-        setGames((prev) => [res.data.data, ...prev]);
-        setSuccess('Game created successfully!');
+        setGames((prev) => [res.data.data, ...prev.filter((g) => g._id !== res.data.data._id)]);
+        setSuccess('Game published successfully!');
       }
       setShowForm(false);
       setForm(emptyForm);

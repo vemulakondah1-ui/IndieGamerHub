@@ -623,28 +623,74 @@ router.post('/', verifyToken, parseGameMedia, async (req, res) => {
       if (user?.username) developerName = user.username;
     } catch (e) {}
 
-    const newGame = await Game.create({
-      title,
-      description,
-      shortDescription,
-      price,
-      isFree,
-      releaseDate,
-      trailerUrl,
-      steamAppId,
-      tags,
-      genre: genres,
-      platform: platforms,
-      storeLinks,
-      thumbnail,
-      screenshots,
-      developer: req.user.id || req.user._id,
-      developerName,
-      uploadedBy: req.user.id || req.user._id,
-      isPublished: true,
-    });
+    let game;
+    if (steamAppId) {
+      const existingGame = await Game.findOne({ steamAppId });
+      if (existingGame) {
+        existingGame.title = title;
+        existingGame.description = description;
+        existingGame.shortDescription = shortDescription;
+        existingGame.price = price;
+        existingGame.isFree = isFree;
+        existingGame.releaseDate = releaseDate;
+        if (trailerUrl) existingGame.trailerUrl = trailerUrl;
+        existingGame.tags = tags;
+        existingGame.genre = genres;
+        existingGame.platform = platforms;
+        existingGame.storeLinks = storeLinks;
+        if (thumbnail) existingGame.thumbnail = thumbnail;
+        if (screenshots.length > 0) existingGame.screenshots = screenshots;
+        existingGame.developer = req.user.id || req.user._id;
+        existingGame.developerName = developerName;
+        existingGame.uploadedBy = req.user.id || req.user._id;
+        existingGame.isPublished = true;
+        game = await existingGame.save();
+      } else {
+        game = await Game.create({
+          title,
+          description,
+          shortDescription,
+          price,
+          isFree,
+          releaseDate,
+          trailerUrl,
+          steamAppId,
+          tags,
+          genre: genres,
+          platform: platforms,
+          storeLinks,
+          thumbnail,
+          screenshots,
+          developer: req.user.id || req.user._id,
+          developerName,
+          uploadedBy: req.user.id || req.user._id,
+          isPublished: true,
+        });
+      }
+    } else {
+      game = await Game.create({
+        title,
+        description,
+        shortDescription,
+        price,
+        isFree,
+        releaseDate,
+        trailerUrl,
+        steamAppId: '',
+        tags,
+        genre: genres,
+        platform: platforms,
+        storeLinks,
+        thumbnail,
+        screenshots,
+        developer: req.user.id || req.user._id,
+        developerName,
+        uploadedBy: req.user.id || req.user._id,
+        isPublished: true,
+      });
+    }
 
-    return res.status(201).json({ success: true, data: newGame });
+    return res.status(201).json({ success: true, data: game });
   } catch (err) {
     console.error('Error creating game:', err);
     if (err.code === 11000) {
