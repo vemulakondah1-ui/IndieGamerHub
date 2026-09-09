@@ -647,6 +647,12 @@ router.post('/', verifyToken, parseGameMedia, async (req, res) => {
     return res.status(201).json({ success: true, data: newGame });
   } catch (err) {
     console.error('Error creating game:', err);
+    if (err.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: 'A game with this Steam App ID is already published in the catalog.',
+      });
+    }
     return res.status(500).json({ success: false, message: err.message || 'Failed to create game' });
   }
 });
