@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import DOMPurify from 'dompurify';
 import ReactPlayer from 'react-player';
 import { steamService } from '../services';
+import GameReviews from '../components/GameReviews/GameReviews';
 import './SteamGamePage.css';
 
 // A regex-based sanitizer can't cover every HTML injection vector (e.g. unquoted event handlers), so this uses DOMPurify instead.
@@ -303,6 +304,9 @@ export default function SteamGamePage() {
           </div>
 
         </div>
+
+        {/* Dedicated Community Reviews & 5-Star Rating Panel */}
+        <GameReviews gameId={appId} gameTitle={game.name} />
 
       </div>
     </div>

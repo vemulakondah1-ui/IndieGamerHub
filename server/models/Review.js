@@ -8,9 +8,9 @@ const reviewSchema = new mongoose.Schema(
       required: true,
     },
     game: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Game',
+      type: mongoose.Schema.Types.Mixed,
       required: true,
+      index: true,
     },
     rating: {
       type: Number,
@@ -26,7 +26,7 @@ const reviewSchema = new mongoose.Schema(
     body: {
       type: String,
       required: [true, 'Review body is required'],
-      minlength: [10, 'Review must be at least 10 characters'],
+      minlength: [3, 'Review must be at least 3 characters'],
       maxlength: [2000, 'Review cannot exceed 2000 characters'],
     },
     isRecommended: {
@@ -43,30 +43,41 @@ const reviewSchema = new mongoose.Schema(
 
 // One review per user per game
 reviewSchema.index({ user: 1, game: 1 }, { unique: true });
-// Separate index: getReviews queries by game alone, and the compound index above can't serve that (game isn't its prefix)
 reviewSchema.index({ game: 1 });
 
 // Static method to recalculate avgRating
 reviewSchema.statics.recalcAvgRating = async function (gameId) {
   const Game = mongoose.model('Game');
-  const result = await this.aggregate([
-    { $match: { game: new mongoose.Types.ObjectId(gameId) } },
-    {
-      $group: {
-        _id: '$game',
-        avgRating: { $avg: '$rating' },
-        reviewCount: { $sum: 1 },
-      },
-    },
-  ]);
+  try {
+    const rawId = String(gameId).trim();
+    const matchCondition = mongoose.Types.ObjectId.isValid(rawId)
+      ? { $or: [{ game: new mongoose.Types.ObjectId(rawId) }, { game: rawId }] }
+      : { game: rawId };
 
-  if (result.length > 0) {
-    await Game.findByIdAndUpdate(gameId, {
-      avgRating: Math.round(result[0].avgRating * 10) / 10,
-      reviewCount: result[0].reviewCount,
-    });
-  } else {
-    await Game.findByIdAndUpdate(gameId, { avgRating: 0, reviewCount: 0 });
+    const result = await this.aggregate([
+      { $match: matchCondition },
+      {
+        $group: {
+          _id: null,
+          avgRating: { $avg: '$rating' },
+          reviewCount: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const avgRating = result.length > 0 ? Math.round(result[0].avgRating * 10) / 10 : 0;
+    const reviewCount = result.length > 0 ? result[0].reviewCount : 0;
+
+    if (mongoose.Types.ObjectId.isValid(rawId)) {
+      await Game.findByIdAndUpdate(rawId, { avgRating, reviewCount });
+    } else {
+      await Game.findOneAndUpdate(
+        { steamAppId: rawId },
+        { avgRating, reviewCount }
+      );
+    }
+  } catch (err) {
+    console.warn('recalcAvgRating warning:', err.message);
   }
 };
 

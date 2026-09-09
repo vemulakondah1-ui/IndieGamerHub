@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { publicApi } from '../services/api';
+import GameReviews from '../components/GameReviews/GameReviews';
 import './GameDetailPage.css';
 
 export default function GameDetailPage() {
@@ -322,7 +323,7 @@ export default function GameDetailPage() {
             </div>
 
             <div style={{ background: 'var(--bg-card)', border: '1px solid var(--border-color)', borderRadius: '16px', padding: '24px' }}>
-              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '16px' }}>Community Reviews</h2>
+              <h2 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '16px' }}>Community Highlights</h2>
               {currentData.reviews && currentData.reviews.map((rev, idx) => (
                 <div key={rev.author} style={{ marginBottom: '16px', paddingBottom: '16px', borderBottom: idx < currentData.reviews.length - 1 ? '1px solid var(--border-color)' : 'none' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
@@ -335,6 +336,9 @@ export default function GameDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Dedicated Community Reviews & 5-Star Rating Panel */}
+        <GameReviews gameId={currentData._id || id} gameTitle={currentData.title} />
       </div>
     </div>
   );
