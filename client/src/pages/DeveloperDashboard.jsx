@@ -15,7 +15,7 @@ const emptyForm = {
   tags: '', releaseDate: '', trailerUrl: '',
   storeLinks: { steam: '', epic: '', itch: '', gog: '' },
   steamAppId: '', price: '', isFree: false,
-  platform: ['Windows'], thumbnail: null, screenshots: [],
+  platform: ['Windows'], thumbnail: null, thumbnailUrl: '', screenshots: [],
 };
 
 // Simple bar chart component (pure CSS/SVG, no external lib)
@@ -132,14 +132,20 @@ export default function DeveloperDashboard() {
     setPrefilling(true);
     setError('');
 
-    const cleanHtml = (str) => (!str ? '' : str.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim());
+    const cleanHtml = (str) => (!str ? '' : String(str).replace(/<[^>]*>?/gm, ' ').replace(/&[a-z]+;/gi, ' ').replace(/\s+/g, ' ').trim());
 
     const applyGameData = (d, sourceLabel = 'Steam') => {
+      const rawDesc = d.description || d.detailed_description || d.about_the_game || '';
+      const rawShort = d.shortDescription || d.short_description || '';
+      const cleanDesc = cleanHtml(rawDesc).slice(0, 4900);
+      const cleanShort = cleanHtml(rawShort || rawDesc).slice(0, 290);
+      const headerImg = d.thumbnail || d.header_image || (cleanAppId ? `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${cleanAppId}/header.jpg` : '');
+
       setForm((f) => ({
         ...f,
         title: d.title || d.name || f.title,
-        description: d.description || d.detailed_description || d.about_the_game || f.description,
-        shortDescription: cleanHtml(d.shortDescription || d.short_description || f.shortDescription),
+        description: cleanDesc || f.description,
+        shortDescription: cleanShort || f.shortDescription,
         genre: d.genre || (d.genres ? d.genres.map((g) => (typeof g === 'string' ? g : g.description)) : f.genre),
         tags: Array.isArray(d.tags) ? d.tags.join(', ') : (d.tags || f.tags),
         releaseDate: d.releaseDate
@@ -155,6 +161,7 @@ export default function DeveloperDashboard() {
           ...f.storeLinks,
           steam: `https://store.steampowered.com/app/${cleanAppId}`,
         },
+        thumbnailUrl: headerImg || f.thumbnailUrl,
       }));
       setSuccess(`✅ Auto-filled from ${sourceLabel}!`);
     };
@@ -224,6 +231,7 @@ export default function DeveloperDashboard() {
     form.platform.forEach((p) => fd.append('platform', p));
     fd.append('storeLinks', JSON.stringify(form.storeLinks));
     if (form.thumbnail) fd.append('thumbnail', form.thumbnail);
+    if (form.thumbnailUrl) fd.append('thumbnailUrl', form.thumbnailUrl);
     form.screenshots.forEach((s) => fd.append('screenshots', s));
 
     try {

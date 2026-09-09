@@ -3,7 +3,32 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
-const Game = require('../models/Game');
+const User = require('../models/User');
+const multer = require('multer');
+
+// Configure multer with memory storage for serverless-safe multipart parsing
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+});
+
+const gameUploadMiddleware = upload.fields([
+  { name: 'thumbnail', maxCount: 1 },
+  { name: 'screenshots', maxCount: 15 }
+]);
+
+const parseGameMedia = (req, res, next) => {
+  gameUploadMiddleware(req, res, (err) => {
+    if (err) {
+      console.warn('Game media upload warning:', err.message);
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ success: false, message: 'File too large (max 10MB)' });
+      }
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next();
+  });
+};
 
 // Auth middleware
 const verifyToken = (req, res, next) => {
@@ -483,9 +508,121 @@ router.get('/search', async (req, res) => {
 // ==========================================
 // CREATE / PUBLISH GAME ROUTE
 // ==========================================
-router.post('/', verifyToken, async (req, res) => {
+router.post('/', verifyToken, parseGameMedia, async (req, res) => {
   try {
-    const {
+    const title = String(req.body.title || '').trim().slice(0, 120);
+    const description = String(req.body.description || '').trim().slice(0, 5000);
+    let shortDescription = String(req.body.shortDescription || '').trim();
+    if (!shortDescription && description) {
+      shortDescription = description.slice(0, 200);
+    }
+    shortDescription = shortDescription.slice(0, 300);
+
+    if (!title || !description) {
+      return res.status(400).json({ success: false, message: 'Title and description are required' });
+    }
+
+    const isFree = req.body.isFree === true || req.body.isFree === 'true';
+    const price = isFree ? 0 : (Number(req.body.price) || 0);
+
+    let releaseDate = new Date();
+    if (req.body.releaseDate) {
+      const parsed = new Date(req.body.releaseDate);
+      if (!isNaN(parsed.getTime())) releaseDate = parsed;
+    }
+
+    const steamAppId = String(req.body.steamAppId || '').trim().replace(/^steam-/, '');
+    const trailerUrl = String(req.body.trailerUrl || '').trim();
+
+    // Store links
+    let storeLinks = { steam: '', epic: '', itch: '', gog: '' };
+    if (typeof req.body.storeLinks === 'string') {
+      try {
+        storeLinks = { ...storeLinks, ...JSON.parse(req.body.storeLinks) };
+      } catch (e) {}
+    } else if (typeof req.body.storeLinks === 'object' && req.body.storeLinks !== null) {
+      storeLinks = { ...storeLinks, ...req.body.storeLinks };
+    }
+    if (steamAppId && !storeLinks.steam) {
+      storeLinks.steam = `https://store.steampowered.com/app/${steamAppId}`;
+    }
+
+    // Genres
+    let genres = [];
+    if (Array.isArray(req.body.genre)) {
+      genres = req.body.genre;
+    } else if (typeof req.body.genre === 'string') {
+      try {
+        const parsed = JSON.parse(req.body.genre);
+        genres = Array.isArray(parsed) ? parsed : [req.body.genre];
+      } catch {
+        genres = [req.body.genre];
+      }
+    }
+    genres = genres.map((g) => String(g).trim()).filter(Boolean).slice(0, 10);
+    if (genres.length === 0) genres = ['Indie'];
+
+    // Tags
+    let tags = [];
+    if (Array.isArray(req.body.tags)) {
+      tags = req.body.tags;
+    } else if (typeof req.body.tags === 'string') {
+      tags = req.body.tags.split(',').map((t) => t.trim()).filter(Boolean);
+    }
+
+    // Platforms
+    let platforms = [];
+    if (Array.isArray(req.body.platform)) {
+      platforms = req.body.platform;
+    } else if (typeof req.body.platform === 'string') {
+      try {
+        const parsed = JSON.parse(req.body.platform);
+        platforms = Array.isArray(parsed) ? parsed : [req.body.platform];
+      } catch {
+        platforms = [req.body.platform];
+      }
+    }
+    platforms = platforms.map((p) => String(p).trim()).filter(Boolean);
+    if (platforms.length === 0) platforms = ['Windows'];
+
+    // Thumbnail
+    let thumbnail = '';
+    if (req.files?.thumbnail?.[0]) {
+      const file = req.files.thumbnail[0];
+      thumbnail = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+    } else if (req.body.thumbnail && typeof req.body.thumbnail === 'string') {
+      thumbnail = req.body.thumbnail;
+    } else if (req.body.thumbnailUrl && typeof req.body.thumbnailUrl === 'string') {
+      thumbnail = req.body.thumbnailUrl;
+    } else if (steamAppId) {
+      thumbnail = `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${steamAppId}/header.jpg`;
+    }
+
+    // Screenshots
+    let screenshots = [];
+    if (req.files?.screenshots?.length) {
+      screenshots = req.files.screenshots.slice(0, 15).map((file) => `data:${file.mimetype};base64,${file.buffer.toString('base64')}`);
+    } else if (req.body.screenshots) {
+      if (Array.isArray(req.body.screenshots)) {
+        screenshots = req.body.screenshots.slice(0, 15);
+      } else if (typeof req.body.screenshots === 'string') {
+        try {
+          const parsed = JSON.parse(req.body.screenshots);
+          screenshots = Array.isArray(parsed) ? parsed.slice(0, 15) : [req.body.screenshots];
+        } catch {
+          screenshots = [req.body.screenshots];
+        }
+      }
+    }
+
+    // Developer name
+    let developerName = 'Developer';
+    try {
+      const user = await User.findById(req.user.id || req.user._id).select('username');
+      if (user?.username) developerName = user.username;
+    } catch (e) {}
+
+    const newGame = await Game.create({
       title,
       description,
       shortDescription,
@@ -495,47 +632,124 @@ router.post('/', verifyToken, async (req, res) => {
       trailerUrl,
       steamAppId,
       tags,
-      genre,
-      platform,
-      storeLinks
-    } = req.body;
-
-    if (!title || !description) {
-      return res.status(400).json({ success: false, message: 'Title and description are required' });
-    }
-
-    let parsedStoreLinks = storeLinks;
-    if (typeof storeLinks === 'string') {
-      try {
-        parsedStoreLinks = JSON.parse(storeLinks);
-      } catch (e) {
-        parsedStoreLinks = {};
-      }
-    }
-
-    const newGame = await Game.create({
-      title,
-      description,
-      shortDescription: shortDescription || (description ? description.slice(0, 200) : ''),
-      price: isFree === 'true' || isFree === true ? 0 : Number(price) || 0,
-      isFree: isFree === 'true' || isFree === true,
-      releaseDate: releaseDate ? new Date(releaseDate) : Date.now(),
-      trailerUrl: trailerUrl || '',
-      steamAppId: steamAppId || '',
-      tags: typeof tags === 'string' ? tags.split(',').map((t) => t.trim()).filter(Boolean) : (tags || []),
-      genre: Array.isArray(genre) ? genre : (genre ? [genre] : []),
-      platform: Array.isArray(platform) ? platform : (platform ? [platform] : ['Windows']),
-      storeLinks: parsedStoreLinks || {},
-      thumbnail: req.body.thumbnail || (steamAppId ? `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${steamAppId}/header.jpg` : ''),
+      genre: genres,
+      platform: platforms,
+      storeLinks,
+      thumbnail,
+      screenshots,
       developer: req.user.id || req.user._id,
+      developerName,
       uploadedBy: req.user.id || req.user._id,
-      isPublished: true
+      isPublished: true,
     });
 
     return res.status(201).json({ success: true, data: newGame });
   } catch (err) {
     console.error('Error creating game:', err);
     return res.status(500).json({ success: false, message: err.message || 'Failed to create game' });
+  }
+});
+
+// ==========================================
+// UPDATE GAME ROUTE
+// ==========================================
+router.put('/:id', verifyToken, parseGameMedia, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const game = await Game.findById(id);
+    if (!game) {
+      return res.status(404).json({ success: false, message: 'Game not found' });
+    }
+
+    const userId = String(req.user.id || req.user._id);
+    const gameDev = String(game.developer || game.uploadedBy || '');
+    if (gameDev !== userId && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Not authorized to edit this game' });
+    }
+
+    const updates = {};
+    if (req.body.title) updates.title = String(req.body.title).trim().slice(0, 120);
+    if (req.body.description) updates.description = String(req.body.description).trim().slice(0, 5000);
+    if (req.body.shortDescription) updates.shortDescription = String(req.body.shortDescription).trim().slice(0, 300);
+    if (req.body.price !== undefined) updates.price = Number(req.body.price) || 0;
+    if (req.body.isFree !== undefined) updates.isFree = req.body.isFree === true || req.body.isFree === 'true';
+    if (req.body.releaseDate) {
+      const parsed = new Date(req.body.releaseDate);
+      if (!isNaN(parsed.getTime())) updates.releaseDate = parsed;
+    }
+    if (req.body.trailerUrl !== undefined) updates.trailerUrl = String(req.body.trailerUrl).trim();
+    if (req.body.steamAppId !== undefined) updates.steamAppId = String(req.body.steamAppId).trim().replace(/^steam-/, '');
+
+    if (req.body.genre) {
+      let genres = [];
+      if (Array.isArray(req.body.genre)) genres = req.body.genre;
+      else if (typeof req.body.genre === 'string') {
+        try { const p = JSON.parse(req.body.genre); genres = Array.isArray(p) ? p : [req.body.genre]; } catch { genres = [req.body.genre]; }
+      }
+      updates.genre = genres.map(g => String(g).trim()).filter(Boolean).slice(0, 10);
+    }
+
+    if (req.body.platform) {
+      let platforms = [];
+      if (Array.isArray(req.body.platform)) platforms = req.body.platform;
+      else if (typeof req.body.platform === 'string') {
+        try { const p = JSON.parse(req.body.platform); platforms = Array.isArray(p) ? p : [req.body.platform]; } catch { platforms = [req.body.platform]; }
+      }
+      updates.platform = platforms.map(p => String(p).trim()).filter(Boolean);
+    }
+
+    if (req.body.tags) {
+      if (Array.isArray(req.body.tags)) updates.tags = req.body.tags;
+      else if (typeof req.body.tags === 'string') updates.tags = req.body.tags.split(',').map(t => t.trim()).filter(Boolean);
+    }
+
+    if (req.body.storeLinks) {
+      try {
+        updates.storeLinks = typeof req.body.storeLinks === 'string' ? JSON.parse(req.body.storeLinks) : req.body.storeLinks;
+      } catch (e) {}
+    }
+
+    if (req.files?.thumbnail?.[0]) {
+      const file = req.files.thumbnail[0];
+      updates.thumbnail = `data:${file.mimetype};base64,${file.buffer.toString('base64')}`;
+    } else if (req.body.thumbnailUrl) {
+      updates.thumbnail = req.body.thumbnailUrl;
+    }
+
+    if (req.files?.screenshots?.length) {
+      updates.screenshots = req.files.screenshots.slice(0, 15).map(file => `data:${file.mimetype};base64,${file.buffer.toString('base64')}`);
+    }
+
+    const updatedGame = await Game.findByIdAndUpdate(id, updates, { new: true });
+    return res.json({ success: true, data: updatedGame });
+  } catch (err) {
+    console.error('Error updating game:', err);
+    return res.status(500).json({ success: false, message: err.message || 'Failed to update game' });
+  }
+});
+
+// ==========================================
+// DELETE GAME ROUTE
+// ==========================================
+router.delete('/:id', verifyToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const game = await Game.findById(id);
+    if (!game) {
+      return res.status(404).json({ success: false, message: 'Game not found' });
+    }
+
+    const userId = String(req.user.id || req.user._id);
+    const gameDev = String(game.developer || game.uploadedBy || '');
+    if (gameDev !== userId && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Not authorized to delete this game' });
+    }
+
+    await Game.findByIdAndDelete(id);
+    return res.json({ success: true, message: 'Game deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting game:', err);
+    return res.status(500).json({ success: false, message: err.message || 'Failed to delete game' });
   }
 });
 
