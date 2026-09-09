@@ -3,6 +3,7 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const jwt = require('jsonwebtoken');
+const Game = require('../models/Game');
 const User = require('../models/User');
 const multer = require('multer');
 
