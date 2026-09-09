@@ -124,34 +124,88 @@ export default function DeveloperDashboard() {
   }, []);
 
   const handleSteamPrefill = async () => {
-    if (!form.steamAppId.trim()) { setError('Enter a Steam App ID first'); return; }
+    const cleanAppId = form.steamAppId.trim().replace(/^steam-/, '');
+    if (!cleanAppId) {
+      setError('Enter a Steam App ID first');
+      return;
+    }
     setPrefilling(true);
     setError('');
+
+    const cleanHtml = (str) => (!str ? '' : str.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim());
+
+    const applyGameData = (d, sourceLabel = 'Steam') => {
+      setForm((f) => ({
+        ...f,
+        title: d.title || d.name || f.title,
+        description: d.description || d.detailed_description || d.about_the_game || f.description,
+        shortDescription: cleanHtml(d.shortDescription || d.short_description || f.shortDescription),
+        genre: d.genre || (d.genres ? d.genres.map((g) => (typeof g === 'string' ? g : g.description)) : f.genre),
+        tags: Array.isArray(d.tags) ? d.tags.join(', ') : (d.tags || f.tags),
+        releaseDate: d.releaseDate
+          ? new Date(d.releaseDate).toISOString().split('T')[0]
+          : d.release_date?.date
+            ? new Date(d.release_date.date).toISOString().split('T')[0]
+            : f.releaseDate,
+        trailerUrl: d.trailerUrl || (d.movies?.[0]?.mp4?.max || d.movies?.[0]?.webm?.max || f.trailerUrl),
+        price: d.price ?? (d.is_free ? 0 : d.price_overview?.final ? (d.price_overview.final / 100).toFixed(2) : f.price),
+        isFree: d.isFree ?? (d.is_free || false),
+        platform: d.platform || (d.platforms ? Object.keys(d.platforms).filter((k) => d.platforms[k]).map((k) => k.charAt(0).toUpperCase() + k.slice(1)) : f.platform),
+        storeLinks: {
+          ...f.storeLinks,
+          steam: `https://store.steampowered.com/app/${cleanAppId}`,
+        },
+      }));
+      setSuccess(`✅ Auto-filled from ${sourceLabel}!`);
+    };
+
+    // 1. First attempt: gameService.steamPrefill
     try {
-      const { data } = await gameService.steamPrefill(form.steamAppId);
-      const d = data.data;
-      if (d) {
-        setForm((f) => ({
-          ...f,
-          title: d.title || f.title,
-          description: d.description || f.description,
-          shortDescription: d.shortDescription || f.shortDescription,
-          genre: d.genre || f.genre,
-          tags: Array.isArray(d.tags) ? d.tags.join(', ') : f.tags,
-          releaseDate: d.releaseDate ? new Date(d.releaseDate).toISOString().split('T')[0] : f.releaseDate,
-          trailerUrl: d.trailerUrl || f.trailerUrl,
-          price: d.price ?? f.price,
-          isFree: d.isFree ?? f.isFree,
-          platform: d.platform || f.platform,
-          storeLinks: { ...f.storeLinks, ...(d.storeLinks || {}) },
-        }));
-        setSuccess(`✅ Auto-filled from ${data.source === 'rawg' ? 'RAWG.io' : 'Steam'}!`);
+      const { data } = await gameService.steamPrefill(cleanAppId);
+      if (data?.data) {
+        applyGameData(data.data, data.source === 'rawg' ? 'RAWG.io' : 'Steam');
+        setPrefilling(false);
+        return;
       }
-    } catch (err) {
-      setError(getErrorMessage(err, 'Steam prefill failed'));
-    } finally {
-      setPrefilling(false);
+    } catch (e) {
+      console.warn('gameService.steamPrefill failed, trying direct steam route...', e);
     }
+
+    // 2. Second attempt: internal /api/steam/details route
+    try {
+      const res = await fetch(`/api/steam/details/${cleanAppId}`);
+      if (res.ok) {
+        const json = await res.json();
+        const steamData = json.data || json;
+        if (steamData && (steamData.name || steamData.title)) {
+          applyGameData(steamData, 'Steam API');
+          setPrefilling(false);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('Internal /api/steam/details route failed, trying corsproxy fallback...', e);
+    }
+
+    // 3. Third attempt: corsproxy.io (reliable for Steam store JSON)
+    try {
+      const target = encodeURIComponent(`https://store.steampowered.com/api/appdetails?appids=${cleanAppId}&cc=us&l=en`);
+      const proxyRes = await fetch(`https://corsproxy.io/?url=${target}`);
+      if (proxyRes.ok) {
+        const parsed = await proxyRes.json();
+        const steamData = parsed[cleanAppId]?.data;
+        if (steamData) {
+          applyGameData(steamData, 'Steam Store');
+          setPrefilling(false);
+          return;
+        }
+      }
+    } catch (e) {
+      console.error('All fetch strategies exhausted:', e);
+    }
+
+    setError('Could not fetch Steam details. Please verify the ID or fill in details manually.');
+    setPrefilling(false);
   };
 
   const handleSubmit = async (e) => {

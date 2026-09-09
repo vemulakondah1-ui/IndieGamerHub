@@ -483,6 +483,50 @@ router.get('/search', async (req, res) => {
     return res.json({ success: true, data: bankMatches });
   }
 });
+// POST /api/games/steam-prefill
+router.post('/steam-prefill', async (req, res) => {
+  try {
+    const { appId } = req.body;
+    if (!appId) {
+      return res.status(400).json({ success: false, message: 'Steam App ID is required' });
+    }
+
+    const cleanAppId = String(appId).trim().replace(/^steam-/, '');
+    const steamUrl = `https://store.steampowered.com/api/appdetails?appids=${cleanAppId}&cc=us&l=en`;
+
+    const response = await axios.get(steamUrl, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      timeout: 6000
+    });
+
+    const appData = response.data?.[cleanAppId];
+    if (!appData || !appData.success || !appData.data) {
+      return res.status(404).json({ success: false, message: 'Game details not found on Steam' });
+    }
+
+    const d = appData.data;
+    const cleanHtml = (html) => (!html ? '' : html.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim());
+
+    return res.json({
+      success: true,
+      data: {
+        title: d.name || '',
+        releaseDate: d.release_date?.date || '',
+        shortDescription: cleanHtml(d.short_description || ''),
+        description: cleanHtml(d.detailed_description || d.about_the_game || d.short_description || ''),
+        price: d.is_free ? 0 : (d.price_overview?.final ? Number((d.price_overview.final / 100).toFixed(2)) : 19.99),
+        thumbnail: d.header_image || '',
+        coverImage: d.screenshots?.[0]?.path_full || d.header_image || '',
+        developer: d.developers?.[0] || '',
+        publisher: d.publishers?.[0] || '',
+        genres: (d.genres || []).map((g) => g.description)
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching steam prefill:', err.message);
+    return res.status(500).json({ success: false, message: 'Failed to fetch Steam data' });
+  }
+});
 // GET /api/games/:id - Fetch single game by MongoDB ObjectId or steamAppId
 router.get('/:id', async (req, res) => {
   try {
