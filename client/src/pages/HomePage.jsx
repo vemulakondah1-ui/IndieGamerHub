@@ -16,7 +16,7 @@ export default function HomePage() {
   const [featuredGames, setFeaturedGames] = useState([]);
 
   useEffect(() => {
-    publicApi.get('/admin/featured')
+    publicApi.get('/admin/featured-games')
       .then(res => {
         console.log('Featured API response:', res.data);
         const data = res.data;

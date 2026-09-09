@@ -161,5 +161,360 @@ const fetchLiveGenreStats = async (req, res) => {
 
 router.get('/genre-stats', fetchLiveGenreStats);
 router.get('/market/genre/:genre', fetchLiveGenreStats);
+// ==========================================
+// TOP RATED & UPCOMING ROUTES
+// ==========================================
 
+// GET /api/games/top-rated - Fetch top rated games from Steam & Epic
+router.get('/top-rated', async (req, res) => {
+  try {
+    const localTop = await Game.find({ isPublished: true })
+      .sort({ avgRating: -1, reviewCount: -1 })
+      .limit(20);
+
+    const curatedTop = [
+      {
+        _id: '1091500',
+        steamAppId: '1091500',
+        title: 'Cyberpunk 2077',
+        platform: 'Steam & Epic',
+        rating: 4.8,
+        price: 59.99,
+        thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1091500/header.jpg',
+        description: 'Open-world, action-adventure RPG set in the megalopolis of Night City.'
+      },
+      {
+        _id: '2358720',
+        steamAppId: '2358720',
+        title: 'Black Myth: Wukong',
+        platform: 'Epic Games & Steam',
+        rating: 4.9,
+        price: 59.99,
+        thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/2358720/header.jpg',
+        description: 'Action RPG rooted in Chinese mythology exploring the legend of Sun Wukong.'
+      },
+      {
+        _id: '271590',
+        steamAppId: '271590',
+        title: 'Grand Theft Auto V',
+        platform: 'Steam',
+        rating: 4.8,
+        price: 29.99,
+        thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/271590/header.jpg',
+        description: 'When a young street hustler, retired bank robber, and terrifying psychopath get entangled with the underworld.'
+      },
+      {
+        _id: '1245620',
+        steamAppId: '1245620',
+        title: 'Elden Ring',
+        platform: 'Steam',
+        rating: 4.9,
+        price: 59.99,
+        thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1245620/header.jpg',
+        description: 'Rise, Tarnished, and brandish the power of the Elden Ring in the Lands Between.'
+      },
+      {
+        _id: '1593500',
+        steamAppId: '1593500',
+        title: 'God of War',
+        platform: 'Steam & Epic',
+        rating: 4.9,
+        price: 49.99,
+        thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1593500/header.jpg',
+        description: 'Venture into the brutal Norse realm with Kratos and his son Atreus.'
+      },
+      {
+        _id: '1659420',
+        steamAppId: '1659420',
+        title: 'UNCHARTED: Legacy of Thieves',
+        platform: 'Steam & Epic',
+        rating: 4.8,
+        price: 49.99,
+        thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1659420/header.jpg',
+        description: 'Seek your fortune and leave your mark with Nathan Drake and Chloe Frazer.'
+      },
+      {
+        _id: '1623730',
+        steamAppId: '1623730',
+        title: 'Palworld',
+        platform: 'Steam',
+        rating: 4.8,
+        price: 29.99,
+        thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1623730/header.jpg',
+        description: 'Fight, farm, build, and adventure alongside mysterious creatures known as Pals.'
+      },
+      {
+        _id: '3035570',
+        steamAppId: '3035570',
+        title: "Assassin's Creed Mirage",
+        platform: 'Steam & Epic',
+        rating: 4.7,
+        price: 49.99,
+        thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/3035570/header.jpg',
+        description: 'Experience the story of Basim, an agile street thief navigating ninth-century Baghdad.'
+      },
+      {
+        _id: '3410590',
+        steamAppId: '3410590',
+        title: 'Wuthering Waves',
+        platform: 'Epic Games & Steam',
+        rating: 4.8,
+        price: 0.00,
+        thumbnail: 'https://images.unsplash.com/photo-1579373903781-fd5c0c30c4cd?w=600&q=80',
+        description: 'A story-rich open-world action RPG featuring high combat freedom and deep audiovisual worldbuilding.'
+      },
+      {
+        _id: 'epic-genshin',
+        steamAppId: '2358720',
+        title: 'Genshin Impact',
+        platform: 'Epic Games',
+        rating: 4.8,
+        price: 0.00,
+        thumbnail: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=600&q=80',
+        description: 'Step into Teyvat, a vast world teeming with life and flowing with elemental energy.'
+      },
+      {
+        _id: '105600',
+        steamAppId: '105600',
+        title: 'Terraria',
+        platform: 'Steam',
+        rating: 4.9,
+        price: 9.99,
+        thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/105600/header.jpg',
+        description: 'Dig, fight, explore, and build in this acclaimed sandbox adventure.'
+      }
+    ];
+
+    const combined = [...localTop, ...curatedTop];
+    const results = combined.filter(
+      (game, index, self) => index === self.findIndex((g) => (g.title || '').toLowerCase() === (game.title || '').toLowerCase())
+    );
+
+    return res.json({ success: true, data: results });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// GET /api/games/upcoming - Fetch anticipated upcoming games
+router.get('/upcoming', async (req, res) => {
+  try {
+    const localUpcoming = await Game.find({ isPublished: true, isUpcoming: true })
+      .sort({ releaseDate: 1 })
+      .limit(20);
+
+    const curatedUpcoming = [
+      {
+        _id: 'up-gta6',
+        title: 'Grand Theft Auto VI',
+        platform: 'Epic Games & Steam',
+        expectedRelease: '2026',
+        thumbnail: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=600&q=80',
+        description: 'Return to the neon-soaked streets of Vice City in the next evolution of open-world gaming.'
+      },
+      {
+        _id: 'up-silksong',
+        title: 'Hollow Knight: Silksong',
+        platform: 'Steam',
+        expectedRelease: 'Coming Soon',
+        thumbnail: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&q=80',
+        description: 'Play as Hornet and ascend to the peak of a haunted kingdom ruled by silk and song.'
+      },
+      {
+        _id: 'up-thewitcher4',
+        title: 'The Witcher: Polaris',
+        platform: 'Epic Games',
+        expectedRelease: 'In Development',
+        thumbnail: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&q=80',
+        description: 'The beginning of a new saga in The Witcher universe built on Unreal Engine 5.'
+      },
+      {
+        _id: 'up-control2',
+        title: 'Control 2',
+        platform: 'Epic Games',
+        expectedRelease: '2026 / 2027',
+        thumbnail: 'https://images.unsplash.com/photo-1579373903781-fd5c0c30c4cd?w=600&q=80',
+        description: 'A major action RPG sequel co-published by Remedy Entertainment and Epic Games.'
+      }
+    ];
+
+    const results = localUpcoming.length > 0 ? localUpcoming : curatedUpcoming;
+    return res.json({ success: true, data: results });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+// ==========================================
+// STORE SEARCH ROUTE (MongoDB + Global Bank + Steam + Epic)
+// ==========================================
+router.get('/search', async (req, res) => {
+  const query = (req.query.q || '').trim().toLowerCase();
+  if (!query) return res.json({ success: true, data: [] });
+
+  const globalStoreBank = [
+    {
+      _id: '271590',
+      steamAppId: '271590',
+      title: 'Grand Theft Auto V',
+      price: 29.99,
+      thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/271590/header.jpg',
+      platform: 'Steam',
+      genres: ['Action', 'Adventure'],
+      short_description: 'When a young street hustler, a retired bank robber and a terrifying psychopath find themselves entangled with the criminal underworld.'
+    },
+    {
+      _id: '1091500',
+      steamAppId: '1091500',
+      title: 'Cyberpunk 2077',
+      price: 59.99,
+      thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1091500/header.jpg',
+      platform: 'Steam',
+      genres: ['RPG', 'Action'],
+      short_description: 'Cyberpunk 2077 is an open-world, action-adventure story set in Night City.'
+    },
+    {
+      _id: '1172470',
+      steamAppId: '1172470',
+      title: 'Apex Legends',
+      price: 0.00,
+      thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1172470/header.jpg',
+      platform: 'Steam',
+      genres: ['Action', 'Free to Play'],
+      short_description: 'Conquer with character in Apex Legends, a free-to-play Battle Royale shooter.'
+    },
+    {
+      _id: '1928420',
+      steamAppId: '1928420',
+      title: 'Minecraft Legends',
+      price: 39.99,
+      thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1928420/header.jpg',
+      platform: 'Steam',
+      genres: ['Action', 'Strategy'],
+      short_description: 'Discover the mysteries of Minecraft Legends. Explore a gentle land of rich resources and lush biomes.'
+    },
+    {
+      _id: '1672970',
+      steamAppId: '1672970',
+      title: 'Minecraft Dungeons',
+      price: 19.99,
+      thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1672970/header.jpg',
+      platform: 'Steam',
+      genres: ['Action', 'RPG'],
+      short_description: 'Fight your way through an all-new action-adventure game inspired by classic dungeon crawlers and set in the Minecraft universe!'
+    },
+    {
+      _id: '1174180',
+      steamAppId: '1174180',
+      title: 'Red Dead Redemption 2',
+      price: 59.99,
+      thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1174180/header.jpg',
+      platform: 'Steam',
+      genres: ['Action', 'Adventure'],
+      short_description: 'Arthur Morgan and the Van der Linde gang are outlaws on the run across the rugged heartland of America.'
+    }
+  ];
+
+  try {
+    const localGames = await Game.find({
+      $or: [
+        { title: { $regex: query, $options: 'i' } },
+        { description: { $regex: query, $options: 'i' } }
+      ]
+    }).limit(10);
+
+    const bankMatches = globalStoreBank.filter(g =>
+      g.title.toLowerCase().includes(query)
+    );
+
+    const [steamRes, epicRes] = await Promise.allSettled([
+      axios.get(
+        `https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(query)}&l=english&cc=US`,
+        { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 3000 }
+      ),
+      axios.get(
+        `https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions?locale=en-US&country=US&allowCountries=US`,
+        { headers: { 'User-Agent': 'Mozilla/5.0' }, timeout: 3000 }
+      )
+    ]);
+
+    let steamGames = [];
+    if (steamRes.status === 'fulfilled' && steamRes.value?.data?.items) {
+      steamGames = steamRes.value.data.items.map((item) => ({
+        _id: String(item.id),
+        steamAppId: String(item.id),
+        title: item.name,
+        price: item.price ? Number((item.price.final / 100).toFixed(2)) : 0.00,
+        thumbnail: `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${item.id}/header.jpg`,
+        platform: 'Steam',
+        genres: ['Action'],
+        short_description: 'Live title fetched directly from Steam Store API.'
+      }));
+    }
+
+    let epicGames = [];
+    if (epicRes.status === 'fulfilled' && epicRes.value?.data?.data?.Catalog?.searchStore?.elements) {
+      const elements = epicRes.value.data.data.Catalog.searchStore.elements;
+      epicGames = elements
+        .filter((g) => g.title && g.title.toLowerCase().includes(query))
+        .map((g) => {
+          const thumb = g.keyImages?.find((img) => img.type === 'Thumbnail' || img.type === 'OfferImageWide')?.url;
+          return {
+            _id: `epic-${g.id}`,
+            epicAppId: g.id,
+            title: g.title,
+            price: 0.00,
+            thumbnail: thumb || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=600&q=80',
+            platform: 'Epic Games',
+            genres: ['Action'],
+            short_description: 'Live promotional game from Epic Games Store.'
+          };
+        });
+    }
+
+    const combined = [...localGames, ...bankMatches, ...steamGames, ...epicGames];
+    const unique = combined.filter(
+      (game, index, self) => index === self.findIndex((g) => (g.title || '').toLowerCase() === (game.title || '').toLowerCase())
+    );
+
+    return res.json({ success: true, data: unique });
+  } catch (err) {
+    const bankMatches = globalStoreBank.filter(g => g.title.toLowerCase().includes(query));
+    return res.json({ success: true, data: bankMatches });
+  }
+});
+// GET /api/games/:id - Fetch single game by MongoDB ObjectId or steamAppId
+router.get('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const cleanId = String(id).replace(/^(steam|epic)-/, '');
+    let game = null;
+
+    if (/^[0-9a-fA-F]{24}$/.test(id)) {
+      game = await Game.findById(id);
+    } else if (/^[0-9a-fA-F]{24}$/.test(cleanId)) {
+      game = await Game.findById(cleanId);
+    }
+
+    if (!game) {
+      game = await Game.findOne({
+        $or: [
+          { steamAppId: cleanId },
+          { appId: cleanId },
+          { steamAppId: String(id) },
+          { appId: String(id) }
+        ]
+      });
+    }
+
+    if (!game) {
+      return res.status(404).json({ success: false, message: 'Game not found' });
+    }
+
+    return res.json({ success: true, data: game });
+  } catch (err) {
+    console.error('Error in /games/:id:', err);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
 module.exports = router;

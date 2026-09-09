@@ -145,15 +145,16 @@ export default function GameDetailPage() {
   };
 
   const getGenericFallback = (gameId) => {
-    const formatted = String(gameId).replace(/-/g, ' ').toUpperCase();
+    const clean = String(gameId).replace(/^(steam|epic)-/i, '').replace(/[-_]/g, ' ');
+    const formatted = clean.replace(/\b\w/g, c => c.toUpperCase());
     return {
       _id: gameId,
-      title: formatted,
+      title: formatted || 'Featured Game',
       platform: 'Steam & Epic Games',
-      developer: 'Independent Studio Partner',
+      developer: 'Independent Studio',
       rating: '4.8',
-      reviewCount: '15,000+',
-      description: `Experience ${formatted} with stunning graphics, immersive gameplay, and active community features.`,
+      reviewCount: '1,200+',
+      description: `Experience ${formatted || 'this game'} with stunning graphics, immersive gameplay, and active community features.`,
       thumbnail: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1200&q=80',
       bannerUrl: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?auto=format&fit=crop&w=1600&q=80',
       trailerUrl: '',
@@ -165,8 +166,14 @@ export default function GameDetailPage() {
   };
 
   useEffect(() => {
+    const cleanId = String(id || '').replace(/^steam-/, '');
+    if (/^\d+$/.test(cleanId)) {
+      navigate(`/steam/${cleanId}`, { replace: true });
+      return;
+    }
+
     const fetchGameDetails = async () => {
-      if (masterGameDatabase[id]) {
+      if (typeof masterGameDatabase !== 'undefined' && masterGameDatabase && masterGameDatabase[id]) {
         setGame(masterGameDatabase[id]);
         setLoading(false);
         return;
@@ -174,20 +181,56 @@ export default function GameDetailPage() {
 
       try {
         const res = await publicApi.get(`/games/${id}`);
-        if (res.data && res.data.success) {
-          setGame(res.data.data);
+        const g = res.data?.data || res.data;
+
+        if (g && (g.title || g.name)) {
+          if (g.steamAppId && /^\d+$/.test(String(g.steamAppId))) {
+            navigate(`/steam/${g.steamAppId}`, { replace: true });
+            return;
+          }
+          const gamePrice = g.isFree ? 0 : Number(g.price || 49.99);
+          const gameImg = g.thumbnail || g.coverImage || g.header_image || 'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=1200&q=80';
+
+          setGame({
+            _id: g._id || id,
+            title: g.title || g.name,
+            platform: g.platform || 'Steam & Epic Games',
+            developer: g.developer || 'Independent Studio Partner',
+            rating: String(g.avgRating || g.rating || '4.8'),
+            reviewCount: g.reviewCount ? `${g.reviewCount}+` : '1,200+',
+            description: g.description || g.shortDescription || 'Experience stunning graphics, immersive gameplay, and active community features.',
+            thumbnail: gameImg,
+            bannerUrl: gameImg,
+            trailerUrl: g.trailerUrl || '',
+            screenshots: Array.isArray(g.screenshots) && g.screenshots.length > 0 ? g.screenshots : [gameImg],
+            prices: {
+              steam: gamePrice,
+              epic: gamePrice
+            },
+            storeLinks: {
+              steam: g.steamAppId ? `https://store.steampowered.com/app/${g.steamAppId}` : 'https://store.steampowered.com',
+              epic: 'https://store.epicgames.com'
+            },
+            reviews: Array.isArray(g.reviews) && g.reviews.length > 0 ? g.reviews : [
+              { author: 'GamerPro', rating: 5, comment: 'Fantastic title with great replay value.' }
+            ]
+          });
         } else {
           setGame(getGenericFallback(id));
         }
       } catch (err) {
+        if (/^\d+$/.test(cleanId)) {
+          navigate(`/steam/${cleanId}`, { replace: true });
+          return;
+        }
         setGame(getGenericFallback(id));
       } finally {
         setLoading(false);
       }
     };
 
-    fetchGameDetails();
-  }, [id]);
+    if (id) fetchGameDetails();
+  }, [id, navigate]);
 
   if (loading) {
     return (
@@ -203,7 +246,7 @@ export default function GameDetailPage() {
   const currentData = game || getGenericFallback(id);
 
   return (
-    <div className="page-wrapper game-detail-page" style={{ backgroundColor: 'var(--bg-main)', color: '#fff', minHeight: '100vh', paddingBottom: '80px' }}>
+    <div className="page-wrapper game-detail-page" style={{ backgroundColor: 'var(--bg-main)', color: '#fff', minHeight: '100vh', paddingTop: '84px', paddingBottom: '80px' }}>
       {/* Hero Banner Header */}
       <div style={{ position: 'relative', height: '420px', background: '#000', overflow: 'hidden' }}>
         <img

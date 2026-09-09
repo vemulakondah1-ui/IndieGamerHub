@@ -8,9 +8,10 @@
 export function normalizeGame(game, index = 0) {
   // steamAppId defaults to '' (never "0") on admin-managed Game docs, so ||
   // (not ??) is what falls through to _id/id correctly for non-Steam games.
-  const id = game.steamAppId || game._id || game.id || `game-${index}`;
-  const isSteamId = /^\d+$/.test(String(id));
-  const path = isSteamId ? `/steam/${id}` : `/games/${id}`;
+  const rawId = game.steamAppId || game._id || game.id || `game-${index}`;
+  const cleanId = String(rawId).replace(/^steam-/, '');
+  const isSteamId = /^\d+$/.test(cleanId);
+  const path = isSteamId ? `/steam/${cleanId}` : `/games/${rawId}`;
 
   const title = game.title || game.name || 'Untitled Game';
   const thumbnail = game.thumbnail || game.header_image || game.imageUrl || '';
@@ -24,5 +25,18 @@ export function normalizeGame(game, index = 0) {
     ? `$${game.price.toFixed(2)}`
     : (game.price_overview?.final_formatted ?? game.price ?? '$14.99');
 
-  return { id, isSteamId, path, title, thumbnail, description, price, platform };
+  const resolvedId = isSteamId ? cleanId : rawId;
+
+  return {
+    id: resolvedId,
+    gameId: resolvedId,
+    isSteamId,
+    path,
+    title,
+    thumbnail,
+    description,
+    price,
+    platform,
+    platformName: platform
+  };
 }

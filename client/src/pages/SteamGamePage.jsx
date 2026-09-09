@@ -144,8 +144,28 @@ export default function SteamGamePage() {
     );
   }
 
-  if (!game) {
-    return null;
+  if (loadError || !game) {
+    return (
+      <div className="steam-page" style={{ minHeight: '100vh', backgroundColor: 'var(--bg-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', textAlign: 'center', padding: '40px 20px' }}>
+        <div style={{ maxWidth: '500px' }}>
+          <div style={{ fontSize: '3rem', marginBottom: '16px' }}>⚠️</div>
+          <h2 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '12px' }}>Couldn't load this game's Steam data</h2>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '24px', lineHeight: 1.5 }}>
+            The Steam store may be temporarily unavailable or this title cannot be reached.
+          </p>
+          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
+            <button
+              type="button"
+              onClick={() => navigate('/')}
+              className="btn btn-primary"
+              style={{ padding: '10px 20px', borderRadius: '10px', cursor: 'pointer' }}
+            >
+              Back to Games
+            </button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   const currentMedia = game.media[activeMediaIndex] || game.media[0];

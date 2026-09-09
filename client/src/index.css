@@ -81,7 +81,7 @@
 
   /* Layout */
   --max-width: 1400px;
-  --nav-height: 68px;
+  --nav-height: 84px;
 }
 
 /* ─── Reset & Base ─── */
@@ -187,7 +187,7 @@ select {
 }
 
 .page-wrapper {
-  padding-top: var(--nav-height);
+  padding-top: calc(var(--nav-height) + 24px);
   min-height: 100vh;
 }
 

@@ -6,6 +6,8 @@ import Navbar from './components/Navbar/Navbar';
 import Footer from './components/Footer';
 import HomePage from './pages/HomePage';
 import GamesPage from './pages/GamesPage';
+import TopRatedPage from './pages/TopRatedPage';
+import UpcomingPage from './pages/UpcomingPage';
 import GameDetailPage from './pages/GameDetailPage';
 import { LoginPage, RegisterPage } from './pages/AuthPages';
 import { ForumPage, ThreadPage } from './pages/ForumPages';
@@ -58,50 +60,52 @@ export default function App() {
       <AuthProvider>
         <Navbar />
         <ErrorBoundary>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/games" element={<GamesPage />} />
-          <Route path="/games/:id" element={<GameDetailPage />} />
-          <Route path="/steam/:appId" element={<SteamGamePage />} />
-          <Route path="/games/:gameId/forum" element={<ForumPage />} />
-          <Route path="/threads/:threadId" element={<ThreadPage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
-          <Route
-            path="/profile"
-            element={
-              <ProtectedRoute>
-                <UserProfile />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute roles={['developer', 'admin']}>
-                <DeveloperDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/gamer-dashboard"
-            element={
-              <ProtectedRoute roles={['gamer', 'developer', 'admin']}>
-                <GamerDashboard />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute roles={['admin']}>
-                <AdminPanel />
-              </ProtectedRoute>
-            }
-          />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+          <Routes>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/games" element={<GamesPage />} />
+            <Route path="/top-rated" element={<TopRatedPage />} />
+            <Route path="/upcoming" element={<UpcomingPage />} />
+            <Route path="/games/:id" element={<GameDetailPage />} />
+            <Route path="/steam/:appId" element={<SteamGamePage />} />
+            <Route path="/games/:gameId/forum" element={<ForumPage />} />
+            <Route path="/threads/:threadId" element={<ThreadPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route
+              path="/profile"
+              element={
+                <ProtectedRoute>
+                  <UserProfile />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/dashboard"
+              element={
+                <ProtectedRoute roles={['developer', 'admin']}>
+                  <DeveloperDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/gamer-dashboard"
+              element={
+                <ProtectedRoute roles={['gamer', 'developer', 'admin']}>
+                  <GamerDashboard />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute roles={['admin']}>
+                  <AdminPanel />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
         </ErrorBoundary>
         <Footer />
       </AuthProvider>

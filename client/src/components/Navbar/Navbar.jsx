@@ -32,10 +32,19 @@ export default function Navbar() {
           <NavLink to="/games" className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'} onClick={() => setMenuOpen(false)}>
             Discover
           </NavLink>
-          <NavLink to="/games?sort=-avgRating" className="nav-link" onClick={() => setMenuOpen(false)}>
+          <NavLink
+            to="/top-rated"
+            className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
+            onClick={() => setMenuOpen(false)}
+          >
             Top Rated
           </NavLink>
-          <NavLink to="/games?upcoming=true" className="nav-link" onClick={() => setMenuOpen(false)}>
+
+          <NavLink
+            to="/upcoming"
+            className={({ isActive }) => isActive ? 'nav-link active' : 'nav-link'}
+            onClick={() => setMenuOpen(false)}
+          >
             Upcoming
           </NavLink>
           {isDeveloper && (
