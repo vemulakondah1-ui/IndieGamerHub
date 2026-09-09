@@ -34,6 +34,7 @@ const getDevGamesHandler = async (req, res) => {
 
 router.get('/developer/:devId', getDevGamesHandler);
 router.get('/my-games', verifyToken, getDevGamesHandler);
+
 // GET /api/games/featured - Public endpoint for Homepage blockbusters
 router.get('/featured', async (req, res) => {
   try {
@@ -117,7 +118,6 @@ const fetchLiveGenreStats = async (req, res) => {
   const genre = req.query.genre || req.params.genre || 'Action';
 
   try {
-    // Call Steam's live featured storefront endpoint
     const steamLive = await axios.get('https://store.steampowered.com/api/featuredcategories/', {
       headers: { 'User-Agent': 'Mozilla/5.0' },
       timeout: 5000
@@ -135,10 +135,7 @@ const fetchLiveGenreStats = async (req, res) => {
       }));
     }
 
-    // Retrieve curated famous games for this genre
     const vault = famousGenreVault[genre] || famousGenreVault.Action;
-
-    // Use live top sellers if available, or fill with famous hits
     const mostPlayed = vault.mostPlayed;
     const mostSold = liveTopSellers.length >= 3 ? liveTopSellers.slice(0, 5) : vault.mostSold;
 
@@ -161,11 +158,11 @@ const fetchLiveGenreStats = async (req, res) => {
 
 router.get('/genre-stats', fetchLiveGenreStats);
 router.get('/market/genre/:genre', fetchLiveGenreStats);
+
 // ==========================================
 // TOP RATED & UPCOMING ROUTES
 // ==========================================
 
-// GET /api/games/top-rated - Fetch top rated games from Steam & Epic
 router.get('/top-rated', async (req, res) => {
   try {
     const localTop = await Game.find({ isPublished: true })
@@ -296,7 +293,6 @@ router.get('/top-rated', async (req, res) => {
   }
 });
 
-// GET /api/games/upcoming - Fetch anticipated upcoming games
 router.get('/upcoming', async (req, res) => {
   try {
     const localUpcoming = await Game.find({ isPublished: true, isUpcoming: true })
@@ -483,7 +479,69 @@ router.get('/search', async (req, res) => {
     return res.json({ success: true, data: bankMatches });
   }
 });
-// POST /api/games/steam-prefill
+
+// ==========================================
+// CREATE / PUBLISH GAME ROUTE
+// ==========================================
+router.post('/', verifyToken, async (req, res) => {
+  try {
+    const {
+      title,
+      description,
+      shortDescription,
+      price,
+      isFree,
+      releaseDate,
+      trailerUrl,
+      steamAppId,
+      tags,
+      genre,
+      platform,
+      storeLinks
+    } = req.body;
+
+    if (!title || !description) {
+      return res.status(400).json({ success: false, message: 'Title and description are required' });
+    }
+
+    let parsedStoreLinks = storeLinks;
+    if (typeof storeLinks === 'string') {
+      try {
+        parsedStoreLinks = JSON.parse(storeLinks);
+      } catch (e) {
+        parsedStoreLinks = {};
+      }
+    }
+
+    const newGame = await Game.create({
+      title,
+      description,
+      shortDescription: shortDescription || (description ? description.slice(0, 200) : ''),
+      price: isFree === 'true' || isFree === true ? 0 : Number(price) || 0,
+      isFree: isFree === 'true' || isFree === true,
+      releaseDate: releaseDate ? new Date(releaseDate) : Date.now(),
+      trailerUrl: trailerUrl || '',
+      steamAppId: steamAppId || '',
+      tags: typeof tags === 'string' ? tags.split(',').map((t) => t.trim()).filter(Boolean) : (tags || []),
+      genre: Array.isArray(genre) ? genre : (genre ? [genre] : []),
+      platform: Array.isArray(platform) ? platform : (platform ? [platform] : ['Windows']),
+      storeLinks: parsedStoreLinks || {},
+      thumbnail: req.body.thumbnail || (steamAppId ? `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${steamAppId}/header.jpg` : ''),
+      developer: req.user.id || req.user._id,
+      uploadedBy: req.user.id || req.user._id,
+      isPublished: true
+    });
+
+    return res.status(201).json({ success: true, data: newGame });
+  } catch (err) {
+    console.error('Error creating game:', err);
+    return res.status(500).json({ success: false, message: err.message || 'Failed to create game' });
+  }
+});
+
+// ==========================================
+// STEAM PREFILL ROUTE
+// ==========================================
 router.post('/steam-prefill', async (req, res) => {
   try {
     const { appId } = req.body;
@@ -527,7 +585,10 @@ router.post('/steam-prefill', async (req, res) => {
     return res.status(500).json({ success: false, message: 'Failed to fetch Steam data' });
   }
 });
-// GET /api/games/:id - Fetch single game by MongoDB ObjectId or steamAppId
+
+// ==========================================
+// GET SINGLE GAME BY ID (Keep at bottom)
+// ==========================================
 router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
@@ -561,4 +622,5 @@ router.get('/:id', async (req, res) => {
     return res.status(500).json({ success: false, message: err.message });
   }
 });
+
 module.exports = router;
