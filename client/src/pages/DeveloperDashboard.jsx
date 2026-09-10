@@ -123,6 +123,24 @@ export default function DeveloperDashboard() {
     return () => document.removeEventListener('mousedown', handler);
   }, []);
 
+  // Auto-dismiss success alert after 4 seconds
+  useEffect(() => {
+    if (!success) return;
+    const timer = setTimeout(() => {
+      setSuccess('');
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [success]);
+
+  // Auto-dismiss error alert after 5 seconds
+  useEffect(() => {
+    if (!error) return;
+    const timer = setTimeout(() => {
+      setError('');
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [error]);
+
   const handleSteamPrefill = async () => {
     const cleanAppId = form.steamAppId.trim().replace(/^steam-/, '');
     if (!cleanAppId) {
@@ -257,6 +275,8 @@ export default function DeveloperDashboard() {
 
   const handleEdit = (game) => {
     setEditingId(game._id);
+    setError('');
+    setSuccess('');
     setForm({
       ...emptyForm,
       title: game.title || '',
@@ -282,8 +302,10 @@ export default function DeveloperDashboard() {
     try {
       await gameService.deleteGame(id);
       setGames((prev) => prev.filter((g) => g._id !== id));
+      setError('');
+      setSuccess('Game deleted successfully.');
     } catch (err) {
-      alert(getErrorMessage(err, 'Failed to delete game'));
+      setError(getErrorMessage(err, 'Failed to delete game'));
     }
   };
 
@@ -312,6 +334,8 @@ export default function DeveloperDashboard() {
     setUploadDropdown(false);
     setActiveTab('mygames');
     setShowForm(false);
+    setError('');
+    setSuccess('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -509,8 +533,50 @@ export default function DeveloperDashboard() {
         {activeTab === 'mygames' && (
           <div className="animate-fade-in">
             {/* Success / Error banners */}
-            {success && <div className="alert alert-success mb-md">{success}</div>}
-            {error && <div className="alert alert-error mb-md">{error}</div>}
+            {success && (
+              <div className="alert alert-success mb-md" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                <span>{success}</span>
+                <button
+                  type="button"
+                  onClick={() => setSuccess('')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'currentColor',
+                    cursor: 'pointer',
+                    fontSize: '1.2rem',
+                    lineHeight: 1,
+                    padding: '0 4px',
+                    opacity: 0.8,
+                  }}
+                  aria-label="Dismiss message"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
+            {error && (
+              <div className="alert alert-error mb-md" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px' }}>
+                <span>{error}</span>
+                <button
+                  type="button"
+                  onClick={() => setError('')}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'currentColor',
+                    cursor: 'pointer',
+                    fontSize: '1.2rem',
+                    lineHeight: 1,
+                    padding: '0 4px',
+                    opacity: 0.8,
+                  }}
+                  aria-label="Dismiss error"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
 
             {/* Game Form */}
             {showForm && (
