@@ -319,49 +319,189 @@ router.get('/top-rated', async (req, res) => {
   }
 });
 
+let upcomingCache = {
+  data: null,
+  timestamp: 0,
+};
+const UPCOMING_CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 router.get('/upcoming', async (req, res) => {
   try {
-    const localUpcoming = await Game.find({ isPublished: true, isUpcoming: true })
-      .sort({ releaseDate: 1 })
-      .limit(20);
+    const now = Date.now();
+    if (upcomingCache.data && (now - upcomingCache.timestamp < UPCOMING_CACHE_TTL)) {
+      return res.json({ success: true, data: upcomingCache.data, cached: true });
+    }
+
+    let localUpcoming = [];
+    try {
+      localUpcoming = await Game.find({ isPublished: true, isUpcoming: true })
+        .sort({ releaseDate: 1 })
+        .limit(20)
+        .lean();
+    } catch (e) {
+      console.warn('Could not query local upcoming games:', e.message);
+    }
 
     const curatedUpcoming = [
+      {
+        _id: 'up-silksong',
+        title: 'Hollow Knight: Silksong',
+        platform: 'Steam',
+        steamAppId: '1030300',
+        expectedRelease: 'Coming Soon',
+        thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1030300/header.jpg',
+        description: 'Play as Hornet, princess-protector of Hallownest, and adventure through a whole new kingdom ruled by silk and song.'
+      },
       {
         _id: 'up-gta6',
         title: 'Grand Theft Auto VI',
         platform: 'Epic Games & Steam',
         expectedRelease: '2026',
-        thumbnail: 'https://images.unsplash.com/photo-1542751371-adc38448a05e?w=600&q=80',
-        description: 'Return to the neon-soaked streets of Vice City in the next evolution of open-world gaming.'
+        thumbnail: 'https://images.igdb.com/igdb/image/upload/t_1080p/co7d4e.jpg',
+        description: 'Grand Theft Auto VI heads to the state of Leonida, home to the neon-soaked streets of Vice City and beyond.'
       },
       {
-        _id: 'up-silksong',
-        title: 'Hollow Knight: Silksong',
+        _id: 'up-doomdarkages',
+        title: 'DOOM: The Dark Ages',
         platform: 'Steam',
-        expectedRelease: 'Coming Soon',
-        thumbnail: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=600&q=80',
-        description: 'Play as Hornet and ascend to the peak of a haunted kingdom ruled by silk and song.'
+        steamAppId: '3017860',
+        expectedRelease: '2025 / 2026',
+        thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/3017860/header.jpg',
+        description: 'The single-player dark fantasy action FPS prequel to the critically acclaimed DOOM (2016) and DOOM Eternal.'
+      },
+      {
+        _id: 'up-subnautica2',
+        title: 'Subnautica 2',
+        platform: 'Steam & Epic Games',
+        steamAppId: '1962700',
+        expectedRelease: '2026',
+        thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1962700/header.jpg',
+        description: 'Embark on a new adventure in an alien ocean world, featuring single player and up to 4-player co-op.'
+      },
+      {
+        _id: 'up-dune',
+        title: 'Dune: Awakening',
+        platform: 'Steam',
+        steamAppId: '1172710',
+        expectedRelease: '2025 / 2026',
+        thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1172710/header.jpg',
+        description: 'An open-world survival MMO set on the most dangerous planet in the universe: Arrakis.'
+      },
+      {
+        _id: 'up-arcraiders',
+        title: 'ARC Raiders',
+        platform: 'Steam & Epic Games',
+        steamAppId: '1808500',
+        expectedRelease: '2025',
+        thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/1808500/header.jpg',
+        description: 'A third-person PvPvE extraction shooter set in a lethal, future earth infested by ruthless machines.'
+      },
+      {
+        _id: 'up-mouse',
+        title: 'MOUSE: P.I. For Hire',
+        platform: 'Steam',
+        steamAppId: '2416450',
+        expectedRelease: '2026',
+        thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/2416450/header.jpg',
+        description: 'Gritty 1930s noir FPS with visual style inspired by classic American cartoons of the rubber hose era.'
       },
       {
         _id: 'up-thewitcher4',
         title: 'The Witcher: Polaris',
-        platform: 'Epic Games',
+        platform: 'Epic Games & Steam',
         expectedRelease: 'In Development',
-        thumbnail: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?w=600&q=80',
-        description: 'The beginning of a new saga in The Witcher universe built on Unreal Engine 5.'
+        thumbnail: 'https://images.igdb.com/igdb/image/upload/t_1080p/co4j04.jpg',
+        description: 'The beginning of a new saga in The Witcher universe built in collaboration with Epic on Unreal Engine 5.'
       },
       {
         _id: 'up-control2',
         title: 'Control 2',
         platform: 'Epic Games',
-        expectedRelease: '2026 / 2027',
-        thumbnail: 'https://images.unsplash.com/photo-1579373903781-fd5c0c30c4cd?w=600&q=80',
-        description: 'A major action RPG sequel co-published by Remedy Entertainment and Epic Games.'
+        expectedRelease: 'In Development',
+        thumbnail: 'https://images.igdb.com/igdb/image/upload/t_1080p/co5j9l.jpg',
+        description: 'A major action RPG sequel co-developed and published in partnership with Epic Games.'
+      },
+      {
+        _id: 'up-skate',
+        title: 'Skate.',
+        platform: 'Steam & Epic Games',
+        steamAppId: '2598710',
+        expectedRelease: 'Coming Soon',
+        thumbnail: 'https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/2598710/header.jpg',
+        description: 'The next evolution of the iconic skateboarding franchise with full cross-platform multiplayer.'
       }
     ];
 
-    const results = localUpcoming.length > 0 ? localUpcoming : curatedUpcoming;
-    return res.json({ success: true, data: results });
+    // Fetch live upcoming from Steam & Epic with graceful error recovery
+    const [steamFeaturedRes, epicRes] = await Promise.allSettled([
+      axios.get('https://store.steampowered.com/api/featuredcategories', {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        timeout: 4000
+      }),
+      axios.get('https://store-site-backend-static.ak.epicgames.com/freeGamesPromotions?locale=en-US&country=US&allowCountries=US', {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        timeout: 4000
+      })
+    ]);
+
+    let liveSteam = [];
+    if (steamFeaturedRes.status === 'fulfilled' && steamFeaturedRes.value?.data?.coming_soon?.items) {
+      liveSteam = steamFeaturedRes.value.data.coming_soon.items.map((item) => {
+        const appId = String(item.id);
+        const header = item.header_image || `https://shared.fastly.steamstatic.com/store_item_assets/steam/apps/${appId}/header.jpg`;
+        return {
+          _id: `steam-up-${appId}`,
+          steamAppId: appId,
+          title: item.name,
+          platform: 'Steam',
+          expectedRelease: item.final_price ? 'Pre-Purchase on Steam' : 'Coming Soon',
+          thumbnail: header,
+          description: `Official upcoming title featured directly on the Steam Store.`
+        };
+      });
+    }
+
+    let liveEpic = [];
+    if (epicRes.status === 'fulfilled' && epicRes.value?.data?.data?.Catalog?.searchStore?.elements) {
+      const elements = epicRes.value.data.data.Catalog.searchStore.elements;
+      liveEpic = elements.map((g) => {
+        const wide = g.keyImages?.find((img) => img.type === 'OfferImageWide')?.url
+          || g.keyImages?.find((img) => img.type === 'featuredMedia')?.url
+          || g.keyImages?.find((img) => img.type === 'Thumbnail')?.url
+          || g.keyImages?.[0]?.url;
+
+        const upcomingOffer = g.promotions?.upcomingPromotionalOffers?.[0]?.promotionalOffers?.[0];
+        const releaseTime = upcomingOffer
+          ? `Free on ${new Date(upcomingOffer.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+          : 'Featured on Epic Games';
+
+        return {
+          _id: `epic-up-${g.id}`,
+          epicAppId: g.id,
+          title: g.title,
+          platform: 'Epic Games',
+          expectedRelease: releaseTime,
+          thumbnail: wide,
+          description: g.description || 'Upcoming promotional release featured on the Epic Games Store.'
+        };
+      }).filter((g) => g.title && g.thumbnail);
+    }
+
+    const combined = [...localUpcoming, ...curatedUpcoming, ...liveSteam, ...liveEpic];
+    const seen = new Set();
+    const unique = combined.filter((g) => {
+      const key = (g.title || '').toLowerCase().trim();
+      if (!key || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    upcomingCache = {
+      data: unique,
+      timestamp: Date.now()
+    };
+
+    return res.json({ success: true, data: unique });
   } catch (err) {
     return res.status(500).json({ success: false, message: err.message });
   }
